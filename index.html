@@ -36,9 +36,7 @@
                 <a href="https://portalbrasil.brasildosparafusos.com.br/compras/" class="btn btn-secondary">
                     <span class="btn-icon">🏠</span> Voltar ao Menu
                 </a>
-                <button class="btn btn-secondary" id="btn-sync-repo" title="Sincronizar com o repositório GitHub">
-                    <span class="btn-icon">🔄</span> Sincronizar
-                </button>
+
                 <label for="file-upload" class="btn btn-primary" id="upload-label">
                     <span class="btn-icon">📁</span> Importar Planilha
                 </label>
@@ -175,38 +173,6 @@
 
     <!-- Scripts -->
     <script src="app.js"></script>
-    <script>
-        // Sincronização de Repositório
-        const btnSync = document.getElementById('btn-sync-repo');
-        if (btnSync) {
-            btnSync.addEventListener('click', async () => {
-                if (!confirm('Deseja sincronizar esta pasta agora com o GitHub? (Isso resetará alterações locais não salvas)')) return;
-                
-                const originalText = btnSync.innerHTML;
-                btnSync.innerHTML = '<span class="btn-icon">⏳</span> Sincronizando...';
-                btnSync.disabled = true;
 
-                try {
-                    // Chamada para a API local com o token de segurança
-                    const response = await fetch('/api/sync_analise.php?token=analise_sync_2026_bp');
-                    const data = await response.json();
-
-                    if (data.status === 'success') {
-                        alert('✅ ' + data.message + '\nAtualizado em: ' + data.timestamp);
-                        location.reload(); // Recarregar para garantir que os arquivos novos sejam lidos
-                    } else {
-                        alert('❌ Erro: ' + data.message + '\n\nVerifique o console para detalhes.');
-                        console.error('Logs de Sincronização:', data.logs);
-                    }
-                } catch (error) {
-                    alert('❌ Falha na comunicação com o servidor.');
-                    console.error('Sync Error:', error);
-                } finally {
-                    btnSync.innerHTML = originalText;
-                    btnSync.disabled = false;
-                }
-            });
-        }
-    </script>
 </body>
 </html>

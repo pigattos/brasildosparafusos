@@ -37,13 +37,15 @@ document.addEventListener('DOMContentLoaded', () => {
      * Calculates Recurrence % (Months with sales > 0)
      */
     function calculateRecurrence(row, monthCols) {
-        if (!monthCols || monthCols.length === 0) return 0;
-        let monthsWithSales = 0;
-        monthCols.forEach(col => {
-            const val = parseFloat(row[col]) || 0;
-            if (val > 0) monthsWithSales++;
-        });
-        return (monthsWithSales / monthCols.length) * 100;
+        let count = 0;
+        if (monthCols && monthCols.length > 0) {
+            monthCols.forEach(col => {
+                const val = parseFloat(row[col]) || 0;
+                if (val > 0) count++;
+            });
+        }
+        const percent = monthCols.length > 0 ? (count / monthCols.length) * 100 : 0;
+        return { percent, count };
     }
 
     /**
@@ -67,11 +69,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const grupo = row['Grupo'] || row['Categoria'] || 'Geral';
             const fornecedor = row['Razão social do fornecedor'] || row['Fornecedor'] || 'N/D';
             const vendas = parseFloat(row['Vendas']) || 0;
-            const medVenda = parseFloat(row['Méd.Venda']) || (vendas / 6);
+            const recData = calculateRecurrence(row, monthCols);
+            const medVenda = recData.count > 0 ? (vendas / recData.count) : 0;
             const estoque = parseFloat(row['Estoque']) || 0;
             const encomendas = parseFloat(row['Encomendas']) || 0;
             const custo = parseFloat(row['Custo aquisição']) || parseFloat(row['Custo']) || 0;
-            const recorrencia = calculateRecurrence(row, monthCols);
+            const recorrencia = recData.percent;
             
             // Formula 1: Stock < 1 Month Sales AND Recurrence > 33%
             const emRisco = medVenda > (estoque + encomendas) && recorrencia > 33;
@@ -103,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 estoque,
                 encomendas,
                 vendas,
-                medVenda: medVenda.toFixed(2),
+                medVenda: medVenda.toFixed(3),
                 tendencia,
                 custo: custo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
                 recorrencia: recorrencia.toFixed(0),
