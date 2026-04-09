@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛒</text></svg>">
+    <title>Gestor de Estoque e Ruptura | Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <!-- Libraries -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+</head>
+<body>
+    <svg style="width:0; height:0; position:absolute;">
+        <defs>
+            <linearGradient id="globalSparkGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#6366f1" stop-opacity="0.4" />
+                <stop offset="100%" stop-color="#6366f1" stop-opacity="0" />
+            </linearGradient>
+        </defs>
+    </svg>
+    <div class="creator-badge">Desenvolvido por Cassyano</div>
+    <div class="app-container">
+        <header>
+            <div class="logo-area">
+                <div class="header-titles">
+                    <h1>Gestor de Estoque <small>v2.0</small></h1>
+                    <span class="sector-tag">Setor de Compras</span>
+                </div>
+            </div>
+            <div class="header-actions">
+                <label for="file-upload" class="btn btn-primary" id="upload-label">
+                    <span class="btn-icon">📁</span> Importar Planilha
+                </label>
+                <input type="file" id="file-upload" accept=".xlsx, .xls, .csv" hidden>
+            </div>
+        </header>
+
+        <main>
+            <section class="chart-section" id="chart-section" style="display: none;">
+                <div class="chart-wrapper">
+                    <div class="chart-card" id="card-pie">
+                        <canvas id="purchase-pie-chart"></canvas>
+                    </div>
+                    <div class="chart-card" id="card-supplier">
+                        <canvas id="supplier-risk-chart"></canvas>
+                    </div>
+                    <div class="chart-card" id="card-group">
+                        <canvas id="group-bar-chart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <section class="welcome-stats" id="stats-section" style="display: none;">
+                <div class="stat-card">
+                    <span class="stat-label">Itens Analisados</span>
+                    <span class="stat-value" id="total-items">0</span>
+                </div>
+                <div class="stat-card urgent" id="risk-card">
+                    <span class="stat-label">Ruptura (1m)</span>
+                    <span class="stat-value" id="to-buy-count">0</span>
+                </div>
+                <div class="stat-card attention" id="attention-card-wrapper">
+                    <span class="stat-label">Atenção (2m)</span>
+                    <span class="stat-value" id="attention-count">0</span>
+                </div>
+                <div class="stat-card warning" id="suggestion-card">
+                    <span class="stat-label">Sugestão (3m)</span>
+                    <span class="stat-value" id="suggestion-count">0</span>
+                </div>
+            </section>
+            
+            <div class="criteria-info" id="criteria-legend" style="display: none;">
+                <div>
+                   <span class="badge badge-buy">🚨 RISCO RUPTURA</span> 
+                   <span>Disponível < <strong>1x</strong> Venda Méd. <strong>+</strong> Recorrência > <strong>33%</strong></span>
+                </div>
+                <div>
+                   <span class="badge badge-warn">⚡ ATENÇÃO</span> 
+                   <span>Disponível < <strong>2x</strong> Venda Méd.</span>
+                </div>
+                <div>
+                   <span class="badge badge-caution">⚠️ SUGESTÃO COMPRA</span> 
+                   <span>Disponível < <strong>3x</strong> Venda Méd.</span>
+                </div>
+                <div style="border-left: 1px solid var(--border-color); padding-left: 1.5rem; margin-left: auto;">
+                   <span class="trend-indicator trend-up">▲</span>
+                   <span class="trend-indicator trend-down">▼</span>
+                   <span>Tendência (Venda Últ. Mês vs Penúltimo)</span>
+                </div>
+            </div>
+
+            <section class="data-section" id="data-section">
+                <!-- Dropzone for initial state -->
+                <div class="drop-zone" id="drop-zone">
+                    <div class="drop-zone-content">
+                        <div class="drop-icon">📤</div>
+                        <h2>Arraste sua planilha SIGER aqui</h2>
+                        <p>Ou clique em "Importar Planilha" no menu superior</p>
+                        <p class="hint">Suporta formatos .xlsx, .xls e .csv</p>
+                    </div>
+                </div>
+
+                <!-- Table Container -->
+                <div class="table-container" id="table-container" style="display: none;">
+                    <div class="table-toolbar">
+                        <div class="search-group" style="display: flex; gap: 1rem; flex: 1;">
+                            <div class="search-box">
+                                <span class="search-icon">🔍</span>
+                                <input type="text" id="table-search" placeholder="Buscar produto...">
+                            </div>
+                            <div class="search-box">
+                                <span class="search-icon">🏢</span>
+                                <input type="text" id="supplier-search" placeholder="Filtrar fornecedor...">
+                            </div>
+                        </div>
+                        <div class="filters">
+                            <button class="filter-btn active" data-filter="all">Todos</button>
+                            <button class="filter-btn" data-filter="buy">🚨 Ruptura</button>
+                            <button class="filter-btn" data-filter="attention">⚡ Atenção</button>
+                            <button class="filter-btn" data-filter="suggest">⚠️ Sugestão</button>
+                            <button class="filter-btn" data-filter="high-rec">🔥 Alta Recorrência</button>
+                            <button class="btn btn-secondary" id="clear-filters" style="font-size: 0.8rem; padding: 0.5rem 1rem;">
+                                🧹 Limpar Filtros
+                            </button>
+                            <div class="export-group">
+                                <button class="btn-export" onclick="exportToExcel(1)">
+                                    📊 Exportar Risco (1m)
+                                </button>
+                                <button class="btn-export" onclick="exportToExcel(3)">
+                                    📋 Sugestão Compra (3m)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="results-table">
+                            <thead>
+                                <tr>
+                                    <th>Produto</th>
+                                    <th>Descrição</th>
+                                    <th>UN</th>
+                                    <th>Fornecedor (Últ.)</th>
+                                    <th style="text-align: center;">Estoque</th>
+                                    <th style="text-align: center;">Vendas (6m)</th>
+                                    <th style="text-align: center; cursor: pointer;" id="sort-recorrencia" class="sortable">
+                                        Recorrência <span class="sort-icon">↕️</span>
+                                    </th>
+                                    <th style="text-align: center;">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body">
+                                <!-- Data injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 Sistema de Análise de Giro e Compras - Pronto para o Futuro</p>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script src="app.js"></script>
+</body>
+</html>
