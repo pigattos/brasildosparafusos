@@ -30,7 +30,35 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!un) return 'Pç';
         const u = un.toString().toUpperCase().trim();
         if (u === 'PC' || u === 'UN' || u === 'UND' || u === 'PÇ' || u === 'PEÇA') return 'Pç';
-        return u; // Mantém original caso seja caixa, rolo, etc.
+        return u;
+    }
+
+    /**
+     * Tenta encontrar o valor em uma linha usando múltiplos nomes de coluna possíveis (Case-Insensitive)
+     */
+    function getValue(row, keys) {
+        const rowKeys = Object.keys(row);
+        for (let key of keys) {
+            if (row[key] !== undefined) return row[key];
+            const foundKey = rowKeys.find(rk => rk.toLowerCase() === key.toLowerCase());
+            if (foundKey) return row[foundKey];
+        }
+        return undefined;
+    }
+
+    /**
+     * Converte valor para número de forma segura, tratando formatos brasileiros (vírgula/ponto)
+     */
+    function parseNum(val) {
+        if (val === undefined || val === null || val === '') return 0;
+        if (typeof val === 'number') return val;
+        let str = val.toString().replace('R$', '').trim();
+        if (str.includes(',') && str.includes('.')) {
+            str = str.replace(/\./g, '').replace(',', '.');
+        } else if (str.includes(',')) {
+            str = str.replace(',', '.');
+        }
+        return parseFloat(str) || 0;
     }
 
     /**
@@ -40,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let count = 0;
         if (monthCols && monthCols.length > 0) {
             monthCols.forEach(col => {
-                const val = parseFloat(row[col]) || 0;
+                const val = parseNum(row[col]);
                 if (val > 0) count++;
             });
         }
@@ -52,42 +80,46 @@ document.addEventListener('DOMContentLoaded', () => {
      * Processes raw JSON from Excel
      */
     function processData(rawData) {
+        if (!rawData || rawData.length === 0) return [];
+
         // Identify Month Columns (format MM/YYYY)
         const allKeys = Object.keys(rawData[0]);
         const monthCols = allKeys.filter(k => /^\d{2}\/\d{4}$/.test(k)).sort((a, b) => {
             const [mA, yA] = a.split('/');
             const [mB, yB] = b.split('/');
-            return (yA + mA).localeCompare(yB + mB); // Sorts by Year then Month
+            return (yA + mA).localeCompare(yB + mB);
         });
         
         console.log('Identifying months:', monthCols);
 
         return rawData.map(row => {
-            const produto = row['Produto'] || row['Código'] || row['Item'] || 'N/A';
-            const descricao = row['Descrição longa do produto'] || row['Descrição'] || 'Sem descrição';
-            const un = normalizeUnit(row['UN'] || row['Unidade']);
-            const grupo = row['Grupo'] || row['Categoria'] || 'Geral';
-            const fornecedor = row['Razão social do fornecedor'] || row['Fornecedor'] || 'N/D';
-            const vendas = parseFloat(row['Vendas']) || 0;
+            const produtoCol = getValue(row, ['Produto', 'Código', 'Item', 'Cód.']);
+            const produto = produtoCol ? produtoCol.toString() : 'N/A';
+            
+            const descricao = getValue(row, ['Descrição longa do produto', 'Descrição', 'Desc', 'Nome']) || 'Sem descrição';
+            const un = normalizeUnit(getValue(row, ['UN', 'Unidade', 'Medida']));
+            const grupo = getValue(row, ['Grupo', 'Categoria', 'Família', 'Linha']) || 'Geral';
+            const fornecedor = getValue(row, ['Razão social do fornecedor', 'Fornecedor', 'Fornec', 'Fabricante']) || 'N/D';
+            
+            const vendas = parseNum(getValue(row, ['Vendas', 'Qtd. Vendida', 'Venda Total', 'Total Vendas']));
             const recData = calculateRecurrence(row, monthCols);
             const medVenda = recData.count > 0 ? (vendas / recData.count) : 0;
-            const estoque = parseFloat(row['Estoque']) || 0;
-            const encomendas = parseFloat(row['Encomendas']) || 0;
-            const custo = parseFloat(row['Custo aquisição']) || parseFloat(row['Custo']) || 0;
+            
+            const estoque = parseNum(getValue(row, ['Estoque', 'Saldo', 'Qtd. Estoque', 'Estoque Total']));
+            const encomendas = parseNum(getValue(row, ['Encomendas', 'Pedidos', 'Qtd. Pedida', 'Saldo Pedido', 'A Receber', 'Compras', 'Qtd em Pedido']));
+            const custo = parseNum(getValue(row, ['Custo aquisição', 'Custo Unitário', 'Custo', 'Preço Custo', 'Vlr. Custo', 'Custo Médio']));
+            
             const recorrencia = recData.percent;
             
-            // Formula 1: Stock < 1 Month Sales AND Recurrence > 33%
+            // Logic for risk classification
             const emRisco = medVenda > (estoque + encomendas) && recorrencia > 33;
-            // Formula 2: Stock < 2 Months Sales
             const emAtencao = (medVenda * 2) > (estoque + encomendas);
-            // Formula 3: Stock < 3 Months Sales
             const emSugestao = (medVenda * 3) > (estoque + encomendas);
 
-            // Trend logic: compare last month with previous month
             let tendencia = 'stable';
             if (monthCols.length >= 2) {
-                const lastVal = parseFloat(row[monthCols[monthCols.length - 1]]) || 0;
-                const prevVal = parseFloat(row[monthCols[monthCols.length - 2]]) || 0;
+                const lastVal = parseNum(row[monthCols[monthCols.length - 1]]);
+                const prevVal = parseNum(row[monthCols[monthCols.length - 2]]);
                 if (lastVal > prevVal) tendencia = 'up';
                 else if (lastVal < prevVal) tendencia = 'down';
             }
@@ -110,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 tendencia,
                 custo: custo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
                 recorrencia: recorrencia.toFixed(0),
-                historico: monthCols.map(col => parseFloat(row[col]) || 0),
+                historico: monthCols.map(col => parseNum(row[col])),
                 monthLabels: monthCols,
                 situacao,
                 emRisco,
