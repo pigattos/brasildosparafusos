@@ -823,26 +823,6 @@ document.addEventListener('DOMContentLoaded', () => {
         handleFile(e.target.files[0]);
     });
 
-    // Drag and Drop implementation
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.classList.add('drag-over');
-    });
-
-    dropZone.addEventListener('dragleave', () => {
-        dropZone.classList.remove('drag-over');
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('drag-over');
-        handleFile(e.dataTransfer.files[0]);
-    });
-
-    dropZone.addEventListener('click', () => {
-        fileUpload.click();
-    });
-
     // Combined search logic
     tableSearch.addEventListener('input', applyAllFilters);
     supplierSearch.addEventListener('input', applyAllFilters);
