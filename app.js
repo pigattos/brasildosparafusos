@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
+    console.log("Gestor de Estoque v2.1 - Filtro de meses ativos (até 04/2026)");
     const fileUpload = document.getElementById('file-upload');
     const dropZone = document.getElementById('drop-zone');
     const statsSection = document.getElementById('stats-section');
@@ -38,12 +39,44 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     function getValue(row, keys) {
         const rowKeys = Object.keys(row);
+        const cleanStr = (s) => s.toString().toLowerCase().trim()
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+            .replace(/[.\-_/\\()]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
         for (let key of keys) {
-            if (row[key] !== undefined) return row[key];
-            const foundKey = rowKeys.find(rk => rk.toLowerCase() === key.toLowerCase());
-            if (foundKey) return row[foundKey];
+            const target = cleanStr(key);
+            
+            // 1. Exact match in raw keys
+            if (row[key] !== undefined) return { value: row[key], col: key };
+            
+            // 2. Exact match in normalized keys
+            const normKey = rowKeys.find(rk => cleanStr(rk) === target);
+            if (normKey) return { value: row[normKey], col: normKey };
         }
-        return undefined;
+
+        // 3. Fallback: word match or partial match
+        for (let key of keys) {
+            const target = cleanStr(key);
+            if (target.length < 3) continue;
+            
+            const fuzzyKey = rowKeys.find(rk => {
+                const cRK = cleanStr(rk);
+                const words = cRK.split(' ');
+                
+                // Matches if any word in the column name starts with our target or vice versa
+                return words.some(word => {
+                    if (word === target) return true;
+                    if (word.length >= 4 && target.startsWith(word)) return true;
+                    if (target.length >= 4 && word.startsWith(target)) return true;
+                    return false;
+                });
+            });
+            if (fuzzyKey) return { value: row[fuzzyKey], col: fuzzyKey };
+        }
+        
+        return { value: undefined, col: 'N/A' };
     }
 
     /**
@@ -52,13 +85,27 @@ document.addEventListener('DOMContentLoaded', () => {
     function parseNum(val) {
         if (val === undefined || val === null || val === '') return 0;
         if (typeof val === 'number') return val;
-        let str = val.toString().replace('R$', '').trim();
-        if (str.includes(',') && str.includes('.')) {
-            str = str.replace(/\./g, '').replace(',', '.');
-        } else if (str.includes(',')) {
+        let str = val.toString().replace('R$', '').replace(/\s/g, '').trim();
+        
+        // Handle BR/INT formatting automatically
+        if (str.startsWith('.') || str.startsWith(',')) str = '0' + str;
+
+        const hasComma = str.includes(',');
+        const hasDot = str.includes('.');
+
+        if (hasComma && hasDot) {
+            if (str.lastIndexOf(',') > str.lastIndexOf('.')) {
+                str = str.replace(/\./g, '').replace(',', '.'); // BR
+            } else {
+                str = str.replace(/,/g, ''); // INT
+            }
+        } else if (hasComma) {
             str = str.replace(',', '.');
         }
-        return parseFloat(str) || 0;
+        
+        const num = parseFloat(str);
+        // For inventory/sales, we generally treat negative/NaN as 0 to avoid visual artifacts
+        return isNaN(num) ? 0 : num;
     }
 
     /**
@@ -82,39 +129,101 @@ document.addEventListener('DOMContentLoaded', () => {
     function processData(rawData) {
         if (!rawData || rawData.length === 0) return [];
 
-        // Identify Month Columns (format MM/YYYY)
-        const allKeys = Object.keys(rawData[0]);
-        const monthCols = allKeys.filter(k => /^\d{2}\/\d{4}$/.test(k)).sort((a, b) => {
+        // IMPROVED: Gather all unique keys across all rows to avoid missing columns
+        // if the first row is incomplete.
+        const allKeysSet = new Set();
+        rawData.forEach(row => {
+            Object.keys(row).forEach(k => allKeysSet.add(k));
+        });
+        const allKeys = Array.from(allKeysSet);
+
+        // Identify Month Columns (format MM/YYYY) - Filtered to exclude future months
+        const monthCols = allKeys.filter(k => {
+            if (!/^\d{2}\/\d{4}$/.test(k)) return false;
+            const [m, y] = k.split('/').map(Number);
+            // Limit to months <= 04/2026 (requested range)
+            const monthVal = y * 12 + m;
+            const limitVal = 2026 * 12 + 4;
+            return monthVal <= limitVal;
+        }).sort((a, b) => {
             const [mA, yA] = a.split('/');
             const [mB, yB] = b.split('/');
             return (yA + mA).localeCompare(yB + mB);
-        });
+        }).slice(-6); // Ensure only the last 6 months are considered
         
-        console.log('Identifying months:', monthCols);
+        console.log(`Dados Brutos: ${rawData.length} linhas | Colunas Detectadas: ${allKeys.length}`);
+        console.log('Meses identificados:', monthCols);
 
-        return rawData.map(row => {
-            const produtoCol = getValue(row, ['Produto', 'Código', 'Item', 'Cód.']);
-            const produto = produtoCol ? produtoCol.toString() : 'N/A';
+        const processed = [];
+        
+        rawData.forEach((row, index) => {
+            const prodObj = getValue(row, ['Produto', 'Código', 'Item', 'Cód.', 'ID']);
+            const descObj = getValue(row, ['Descrição longa do produto', 'Descrição', 'Desc', 'Nome', 'Produto Descrição', 'Texto']);
             
-            const descricao = getValue(row, ['Descrição longa do produto', 'Descrição', 'Desc', 'Nome']) || 'Sem descrição';
-            const un = normalizeUnit(getValue(row, ['UN', 'Unidade', 'Medida']));
-            const grupo = getValue(row, ['Grupo', 'Categoria', 'Família', 'Linha']) || 'Geral';
-            const fornecedor = getValue(row, ['Razão social do fornecedor', 'Fornecedor', 'Fornec', 'Fabricante']) || 'N/D';
-            
-            const vendas = parseNum(getValue(row, ['Vendas', 'Qtd. Vendida', 'Venda Total', 'Total Vendas']));
+            // VALIDATION: Skip row if it has no product ID AND no description (likely empty or junk row)
+            if (!prodObj.value && !descObj.value) {
+                return; 
+            }
+
+            const produto = prodObj.value ? prodObj.value.toString().trim() : 'N/A';
+            const descricao = descObj.value ? descObj.value.toString().trim() : 'Sem descrição';
+
+            const unObj = getValue(row, ['UN', 'Unidade', 'Medida', 'U', 'Med']);
+            const grupoObj = getValue(row, ['Grupo', 'Categoria', 'Família', 'Linha', 'Grupo de Produto', 'Cód. Grupo', 'Subgrupo']);
+            const fornecObj = getValue(row, ['Razão social do fornecedor', 'Fornecedor', 'Fornec', 'Fabricante', 'Último Fornecedor', 'Fornecedor Principal', 'Nome Fornecedor']);
+            const vendasObj = getValue(row, ['Vendas', 'Qtd. Vendida', 'Venda Total', 'Total Vendas', 'Venda', 'Saídas', 'Giro']);
+            const estoqueObj = getValue(row, ['Estoque', 'Saldo', 'Qtd. Estoque', 'Estoque Total', 'Saldo Atual', 'Saldo Disponível', 'Disp.', 'Qtd. Disponível', 'Estoque Atual']);
+            const encomObj = getValue(row, [
+                'Encomendas', 'Qtd. Encomenda', 'Saldo Pedido Compra', 'Saldo Ped. Compra', 'Pedido Compra', 
+                'Qtd. em Pedido Compra', 'Qtd. no Pedido Compra', 'Saldo a Receber', 'A Receber', 'Pedidos', 
+                'Qtd. Pedida', 'Saldo Pedido', 'Compras', 'Qtd em Pedido', 'Qtd. Ped.', 'Saldo Ped.', 
+                'Pendência', 'Qtd. no Pedido', 'Encomenda', 'Pedido', 'Qtd Ped Compra', 'A Receber Total',
+                'A Entregar', 'Saldo a Entregar', 'Qtd. Pendente', 'Pendente', 'Saldo O.C.', 'Ord. Compra'
+            ]);
+            const custoObj = getValue(row, ['Custo aquisição', 'Custo Unitário', 'Custo', 'Preço Custo', 'Vlr. Custo', 'Custo Médio', 'Unitário']);
+
+            let vendas = parseNum(vendasObj.value);
             const recData = calculateRecurrence(row, monthCols);
+            
+            // FALLBACK: If "Vendas" column is 0 or missing, sum the month columns
+            if (vendas === 0 && monthCols.length > 0) {
+                monthCols.forEach(col => {
+                    const v = parseNum(row[col]);
+                    if (v > 0) vendas += v;
+                });
+            }
+
             const medVenda = recData.count > 0 ? (vendas / recData.count) : 0;
             
-            const estoque = parseNum(getValue(row, ['Estoque', 'Saldo', 'Qtd. Estoque', 'Estoque Total']));
-            const encomendas = parseNum(getValue(row, ['Encomendas', 'Pedidos', 'Qtd. Pedida', 'Saldo Pedido', 'A Receber', 'Compras', 'Qtd em Pedido']));
-            const custo = parseNum(getValue(row, ['Custo aquisição', 'Custo Unitário', 'Custo', 'Preço Custo', 'Vlr. Custo', 'Custo Médio']));
+            const estoque = parseNum(estoqueObj.value);
+            const encomendas = parseNum(encomObj.value);
+            const custo = parseNum(custoObj.value);
             
             const recorrencia = recData.percent;
             
-            // Logic for risk classification
-            const emRisco = medVenda > (estoque + encomendas) && recorrencia > 33;
-            const emAtencao = (medVenda * 2) > (estoque + encomendas);
-            const emSugestao = (medVenda * 3) > (estoque + encomendas);
+            const mappingInfo = `Linha: ${index + 2} | Cód: "${prodObj.col}" | Estoque: "${estoqueObj.col}" | Encomendas: "${encomObj.col}"`;
+            
+            // Logic for risk classification (Refactored for maximum clarity)
+            let emRisco = false;
+            let emAtencao = false;
+            let emSugestao = false;
+            let situacao = 'seguro';
+
+            // Only evaluate for risks if recurrence is > 33%
+            if (recorrencia > 33) {
+                const totalDisponivel = estoque + encomendas;
+                
+                if (medVenda > totalDisponivel) {
+                    emRisco = true;
+                    situacao = 'ruptura';
+                } else if ((medVenda * 2) > totalDisponivel) {
+                    emAtencao = true;
+                    situacao = 'atencao';
+                } else if ((medVenda * 3) > totalDisponivel) {
+                    emSugestao = true;
+                    situacao = 'sugestao';
+                }
+            }
 
             let tendencia = 'stable';
             if (monthCols.length >= 2) {
@@ -124,17 +233,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 else if (lastVal < prevVal) tendencia = 'down';
             }
 
-            let situacao = 'seguro';
-            if (emRisco) situacao = 'ruptura';
-            else if (emAtencao) situacao = 'atencao';
-            else if (emSugestao) situacao = 'sugestao';
-
-            return {
+            processed.push({
                 produto,
                 descricao,
-                un,
-                grupo,
-                fornecedor,
+                un: normalizeUnit(unObj.value),
+                grupo: grupoObj.value || 'Geral',
+                fornecedor: fornecObj.value || 'N/D',
                 estoque,
                 encomendas,
                 vendas,
@@ -142,14 +246,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 tendencia,
                 custo: custo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
                 recorrencia: recorrencia.toFixed(0),
-                historico: monthCols.map(col => parseNum(row[col])),
+                historico: monthCols.map(col => Math.max(0, parseNum(row[col]))), // Ensure non-negative history for chart
                 monthLabels: monthCols,
                 situacao,
                 emRisco,
                 emAtencao,
-                emSugestao
-            };
+                emSugestao,
+                temEncomenda: encomendas > 0,
+                mappingInfo
+            });
         });
+
+        console.log(`Itens Processados: ${processed.length}`);
+        return processed;
     }
 
     /**
@@ -174,6 +283,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 badgeText = '⚠️ COMPRAR';
             }
             
+            // Highlight if there's a pending order
+            if (item.temEncomenda) {
+                badgeText += ' 📦';
+            }
+            
             mainTr.innerHTML = `
                 <td>
                     <span class="cell-label">Produto</span>
@@ -194,7 +308,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 </td>
                 <td style="text-align: center;">
                     <span class="cell-label">Estoque</span>
-                    <div class="cell-value">${item.estoque}</div>
+                    <div class="cell-value" style="display: flex; flex-direction: column; align-items: center;">
+                        <span style="font-weight: 600;">${item.estoque}</span>
+                        ${item.temEncomenda ? `<span style="font-size: 0.75rem; color: var(--info); font-weight: 700;" title="Saldo em Pedido">+ ${item.encomendas} ped.</span>` : ''}
+                    </div>
                 </td>
                 <td style="text-align: center;">
                     <span class="cell-label">Vendas (6m)</span>
@@ -248,6 +365,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                 ${generateSparkline(item.historico, item.monthLabels)}
                             </div>
                         </div>
+                        <div class="detail-item" style="border-top:1px solid var(--border-color); padding-top:10px; width:100%;">
+                            <span class="detail-label">Mapeamento de Dados (Debug)</span>
+                            <span class="detail-value" style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;">
+                                ${item.mappingInfo}
+                            </span>
+                        </div>
                     </div>
                 </td>
             `;
@@ -276,11 +399,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const buyCount = data.filter(i => i.situacao === 'ruptura').length;
         const attentionCount = data.filter(i => i.situacao === 'atencao').length;
         const suggestCount = data.filter(i => i.situacao === 'sugestao').length;
+        const ordersCount = data.filter(i => i.temEncomenda).length;
 
         document.getElementById('total-items').textContent = totalItems;
         document.getElementById('to-buy-count').textContent = buyCount;
         document.getElementById('attention-count').textContent = attentionCount;
         document.getElementById('suggestion-count').textContent = suggestCount;
+        const ordersCountEl = document.getElementById('orders-count');
+        if (ordersCountEl) ordersCountEl.textContent = ordersCount;
 
         // Update Charts with filtered data
         updateChart(data);
@@ -345,24 +471,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const reader = new FileReader();
         reader.onload = (e) => {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const firstSheet = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[firstSheet];
-            const json = XLSX.utils.sheet_to_json(worksheet);
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheet = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheet];
+                
+                // Use defval: null to ensure all columns exist in all objects
+                const json = XLSX.utils.sheet_to_json(worksheet, { 
+                    defval: null,
+                    blankrows: false 
+                });
 
-            console.log('Parsed JSON:', json);
-            
-            if (json.length === 0) {
-                alert('A planilha parece estar vazia.');
-                return;
+                console.log('JSON Bruto carregado:', json.length, 'linhas.');
+                
+                if (json.length === 0) {
+                    alert('A planilha parece estar vazia ou mal formatada.');
+                    return;
+                }
+
+                currentData = processData(json);
+                filteredData = [...currentData];
+                
+                showDashboard();
+                renderTable(filteredData);
+            } catch (err) {
+                console.error('Erro ao processar arquivo:', err);
+                alert('Ocorreu um erro ao ler a planilha. Verifique se o formato está correto.');
             }
-
-            currentData = processData(json);
-            filteredData = [...currentData];
-            
-            showDashboard();
-            renderTable(filteredData);
         };
         reader.readAsArrayBuffer(file);
     }
@@ -601,24 +737,37 @@ document.addEventListener('DOMContentLoaded', () => {
         const suppTerm = supplierSearch.value.toLowerCase();
 
         filteredData = currentData.filter(i => {
-            // 1. Filter by Product search (now also searches by Group and Description)
-            const matchProd = i.produto.toString().toLowerCase().includes(prodTerm) || 
+            // 1. Filter by Product search (optimized to ignore symbols like dots)
+            const cleanProd = i.produto.toString().replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+            const cleanTerm = prodTerm.replace(/[^a-zA-Z0-9]/g, '');
+            
+            const matchProd = cleanProd.includes(cleanTerm) || 
                               i.grupo.toString().toLowerCase().includes(prodTerm) ||
                               i.descricao.toString().toLowerCase().includes(prodTerm);
             
             // 2. Filter by Supplier search
             const matchSupp = i.fornecedor.toString().toLowerCase().includes(suppTerm);
             
-            // 3. Filter by Buttons (Status) - Multi-select logic
+            // 3. Filter by Buttons (Status) - Intelligent multi-select logic
             let matchStatus = true;
             if (!activeFilters.includes('all')) {
-                matchStatus = activeFilters.some(filter => {
-                    if (filter === 'buy') return i.situacao === 'ruptura';
-                    if (filter === 'attention') return i.situacao === 'atencao';
-                    if (filter === 'suggest') return i.situacao === 'sugestao';
-                    if (filter === 'high-rec') return parseFloat(i.recorrencia) > 50;
-                    return false;
-                });
+                const statusFilters = activeFilters.filter(f => ['buy', 'attention', 'suggest'].includes(f));
+                const flagFilters = activeFilters.filter(f => ['has-order', 'high-rec'].includes(f));
+                
+                // If any status filter is selected, item must match one of them
+                let passStatus = statusFilters.length === 0; // true if no status filter is selected
+                if (statusFilters.length > 0) {
+                    if (statusFilters.includes('buy') && i.situacao === 'ruptura') passStatus = true;
+                    if (statusFilters.includes('attention') && i.situacao === 'atencao') passStatus = true;
+                    if (statusFilters.includes('suggest') && i.situacao === 'sugestao') passStatus = true;
+                }
+                
+                // Item must also match ALL selected flags (AND logic for flags)
+                let passFlags = true;
+                if (flagFilters.includes('has-order') && !i.temEncomenda) passFlags = false;
+                if (flagFilters.includes('high-rec') && parseFloat(i.recorrencia) <= 50) passFlags = false;
+                
+                matchStatus = passStatus && passFlags;
             }
 
             return matchProd && matchSupp && matchStatus;
