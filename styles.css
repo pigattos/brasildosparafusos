@@ -689,7 +689,7 @@ footer {
 /* Creator Badge */
 .creator-badge {
     position: fixed;
-    top: 12px;
+    bottom: 15px;
     right: 20px;
     font-size: 0.7rem;
     color: var(--text-muted);
@@ -704,4 +704,53 @@ footer {
     opacity: 0.7;
     pointer-events: none;
     user-select: none;
+}
+/* Changelog Section */
+.changelog-container {
+    margin-top: 2.5rem;
+    padding: 1.5rem;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    text-align: left;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+    backdrop-filter: blur(4px);
+}
+
+.changelog-container h3 {
+    font-size: 0.9rem;
+    color: var(--primary);
+    margin-bottom: 1.2rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-weight: 700;
+}
+
+.changelog-container ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.changelog-container li {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+    position: relative;
+    padding-left: 24px;
+}
+
+.changelog-container li::before {
+    content: "→";
+    color: var(--primary);
+    position: absolute;
+    left: 0;
+    font-weight: bold;
+}
+
+.changelog-container strong {
+    color: var(--text-main);
 }
