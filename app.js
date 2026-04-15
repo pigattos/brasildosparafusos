@@ -7,6 +7,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const tableBody = document.getElementById('table-body');
     const tableSearch = document.getElementById('table-search');
     const supplierSearch = document.getElementById('supplier-search');
+    const buyerSearch = document.getElementById('buyer-search');
+    const buyerUpload = document.getElementById('buyer-upload');
     const filterBtns = document.querySelectorAll('.filter-btn');
     const clearFiltersBtn = document.getElementById('clear-filters');
     const chartSection = document.getElementById('chart-section');
@@ -21,6 +23,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let myChart = null;
     let supplierChart = null;
     let groupChart = null;
+
+    let buyerMap = JSON.parse(localStorage.getItem('buyerMap') || '{}');
+    console.log(`Mapeamento de compradores carregado: ${Object.keys(buyerMap).length} códigos.`);
 
     // --- Core Logic ---
 
@@ -165,8 +170,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 return; 
             }
 
-            const produto = prodObj.value ? prodObj.value.toString().trim() : 'N/A';
+            const produtoRaw = prodObj.value ? prodObj.value.toString().trim() : 'N/A';
+            const produto = produtoRaw;
             const descricao = descObj.value ? descObj.value.toString().trim() : 'Sem descrição';
+
+            // Lookup Buyer
+            let comprador = 'N/D';
+            if (produto !== 'N/A') {
+                // Try exact match, then match without leading zeros/dots if numeric
+                const cleanCode = produto.replace(/^0+/, '').replace(/[.]/g, '');
+                comprador = buyerMap[produto] || buyerMap[cleanCode] || 'N/D';
+            }
 
             const unObj = getValue(row, ['UN', 'Unidade', 'Medida', 'U', 'Med']);
             const grupoObj = getValue(row, ['Grupo', 'Categoria', 'Família', 'Linha', 'Grupo de Produto', 'Cód. Grupo', 'Subgrupo']);
@@ -236,6 +250,7 @@ document.addEventListener('DOMContentLoaded', () => {
             processed.push({
                 produto,
                 descricao,
+                comprador,
                 un: normalizeUnit(unObj.value),
                 grupo: grupoObj.value || 'Geral',
                 fornecedor: fornecObj.value || 'N/D',
@@ -306,6 +321,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="cell-label">Fornecedor</span>
                     <div class="cell-value td-supplier">${item.fornecedor}</div>
                 </td>
+                <td>
+                    <span class="cell-label">Comprador</span>
+                    <div class="cell-value">${item.comprador}</div>
+                </td>
                 <td style="text-align: center;">
                     <span class="cell-label">Estoque</span>
                     <div class="cell-value" style="display: flex; flex-direction: column; align-items: center;">
@@ -341,7 +360,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const detailTr = document.createElement('tr');
             detailTr.className = 'detail-row hidden';
             detailTr.innerHTML = `
-                <td colspan="8">
+                <td colspan="9">
                     <div class="row-details">
                         <div class="detail-item">
                             <span class="detail-label">Encomendas</span>
@@ -498,6 +517,55 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (err) {
                 console.error('Erro ao processar arquivo:', err);
                 alert('Ocorreu um erro ao ler a planilha. Verifique se o formato está correto.');
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    /**
+     * Handles Buyer Mapping File
+     */
+    function handleBuyerFile(file) {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(worksheet);
+                
+                const newMap = {};
+                json.forEach(row => {
+                    const codeObj = getValue(row, ['Código', 'Cód.', 'Produto', 'Cod', 'ID', 'Item']);
+                    const nameObj = getValue(row, ['Comprador', 'Nome', 'Responsável', 'Buyer', 'Nome do Comprador']);
+                    
+                    if (codeObj.value && nameObj.value) {
+                        const code = codeObj.value.toString().trim();
+                        const name = nameObj.value.toString().trim();
+                        newMap[code] = name;
+                        
+                        // Also store localized version (without leading zeros or dots) for better matching
+                        const cleanCode = code.replace(/^0+/, '').replace(/[.]/g, '');
+                        if (cleanCode !== code) newMap[cleanCode] = name;
+                    }
+                });
+
+                if (Object.keys(newMap).length === 0) {
+                    alert('Nenhum mapeamento de "Código" e "Comprador" foi encontrado no arquivo.');
+                    return;
+                }
+
+                buyerMap = newMap;
+                localStorage.setItem('buyerMap', JSON.stringify(buyerMap));
+                alert(`Sucesso! ${Object.keys(newMap).length} códigos vinculados. Agora você pode importar sua planilha de estoque.`);
+                
+                // If there's already data, re-process it to show buyers immediately
+                // However, processData needs rawData which we don't store globally in its raw form.
+                // For now, simple alert is enough; the user will re-upload or it's ready for next.
+            } catch (err) {
+                console.error('Erro ao processar arquivo de compradores:', err);
+                alert('Erro ao ler arquivo de compradores.');
             }
         };
         reader.readAsArrayBuffer(file);
@@ -735,6 +803,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function applyAllFilters() {
         const prodTerm = tableSearch.value.toLowerCase();
         const suppTerm = supplierSearch.value.toLowerCase();
+        const buyerTerm = buyerSearch.value.toLowerCase();
 
         filteredData = currentData.filter(i => {
             // 1. Filter by Product search (optimized to ignore symbols like dots)
@@ -747,8 +816,11 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // 2. Filter by Supplier search
             const matchSupp = i.fornecedor.toString().toLowerCase().includes(suppTerm);
+
+            // 3. Filter by Buyer search
+            const matchBuyer = i.comprador.toString().toLowerCase().includes(buyerTerm);
             
-            // 3. Filter by Buttons (Status) - Intelligent multi-select logic
+            // 4. Filter by Buttons (Status) - Intelligent multi-select logic
             let matchStatus = true;
             if (!activeFilters.includes('all')) {
                 const statusFilters = activeFilters.filter(f => ['buy', 'attention', 'suggest'].includes(f));
@@ -770,7 +842,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 matchStatus = passStatus && passFlags;
             }
 
-            return matchProd && matchSupp && matchStatus;
+            return matchProd && matchSupp && matchBuyer && matchStatus;
         });
 
         // 4. Sorting by Recurrence
@@ -826,6 +898,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Combined search logic
     tableSearch.addEventListener('input', applyAllFilters);
     supplierSearch.addEventListener('input', applyAllFilters);
+    buyerSearch.addEventListener('input', applyAllFilters);
+
+    buyerUpload.addEventListener('change', (e) => {
+        handleBuyerFile(e.target.files[0]);
+    });
 
     // Sort Recorrência
     const sortRecHeader = document.getElementById('sort-recorrencia');
@@ -854,6 +931,7 @@ document.addEventListener('DOMContentLoaded', () => {
     clearFiltersBtn.addEventListener('click', () => {
         tableSearch.value = '';
         supplierSearch.value = '';
+        buyerSearch.value = '';
         activeFilters = ['all'];
         filterBtns.forEach(btn => {
             const btnFilter = btn.getAttribute('data-filter');
@@ -863,31 +941,32 @@ document.addEventListener('DOMContentLoaded', () => {
         applyAllFilters();
     });
 
+    // Unified Export Button
+    const exportBtn = document.getElementById('export-btn');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', () => exportToExcel());
+    }
+
     // --- Export Logic ---
-    window.exportToExcel = (meses = 1) => {
-        if (filteredData.length === 0) return;
-        
-        const todayLocale = new Date().toLocaleDateString('pt-BR');
-        const fileSuffix = meses === 1 ? 'risco_ruptura_1m' : 'sugestao_compra_3m';
-        const sheetName = meses === 1 ? 'Risco Ruptura (1 Mês)' : 'Sugestão Compra (3 Meses)';
-
-        // Filter data based on the export type - now strictly exclusive
-        const itemsToExport = filteredData.filter(i => {
-            if (meses === 1) return i.situacao === 'ruptura';
-            if (meses === 2) return i.situacao === 'atencao';
-            if (meses === 3) return i.situacao === 'sugestao';
-            return true;
-        });
-
-        if (itemsToExport.length === 0) {
-            alert(`Nenhum item encontrado para exportação de ${meses === 1 ? 'Risco' : 'Sugestão'}.`);
+    window.exportToExcel = () => {
+        if (filteredData.length === 0) {
+            alert("Não há dados para exportar. Importe uma planilha primeiro.");
             return;
         }
+        
+        const todayLocale = new Date().toLocaleDateString('pt-BR');
+        const sheetName = 'Lista Filtrada Exportada';
 
-        // Prepare data with the specific columns requested
-        const exportData = itemsToExport.map(i => {
-            // Quantity strictly based on monthly average as requested (1x for Risk, 4x for Suggestion)
-            const qtdSugerida = Math.ceil(parseFloat(i.medVenda) * meses);
+        // Prepare data with the specific columns requested by the user
+        const exportData = filteredData.map(i => {
+            // Determine multiplier based on item status
+            let multiplier = 1;
+            if (i.situacao === 'ruptura') multiplier = 1;
+            else if (i.situacao === 'atencao') multiplier = 2;
+            else if (i.situacao === 'sugestao') multiplier = 3;
+            else multiplier = 0; // If it's safe, maybe suggest 0? 
+
+            const qtdSugerida = Math.ceil(parseFloat(i.medVenda) * multiplier);
             
             return {
                 "Produto": i.produto,
@@ -902,10 +981,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
 
-        // Format column widths for better readability
+        // Format column widths for better readability (matching the 5 requested columns)
         const wscols = [
             {wch: 15}, // Produto
-            {wch: 40}, // Descrição
             {wch: 12}, // Quantidade
             {wch: 15}, // Centro de Custo
             {wch: 12}, // Finalidade
@@ -913,9 +991,9 @@ document.addEventListener('DOMContentLoaded', () => {
         ];
         worksheet['!cols'] = wscols;
 
-        XLSX.writeFile(workbook, `relatorio_${fileSuffix}_${todayLocale.replace(/\//g, '-')}.xlsx`);
+        XLSX.writeFile(workbook, `exportacao_estoque_${todayLocale.replace(/\//g, '-')}.xlsx`);
     };
 
-    window.exportAttention = () => exportToExcel(2); // Helper for Attention export if needed
+    window.exportAttention = () => exportToExcel(); // Kept for legacy if called elsewhere
 
 });

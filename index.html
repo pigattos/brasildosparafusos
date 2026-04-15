@@ -41,6 +41,11 @@
                     <span class="btn-icon">📁</span> Importar Planilha
                 </label>
                 <input type="file" id="file-upload" accept=".xlsx, .xls, .csv" hidden>
+
+                <label for="buyer-upload" class="btn btn-secondary" id="buyer-label" title="Vincular códigos de produtos aos nomes dos compradores">
+                    <span class="btn-icon">👤</span> Vincular Compradores
+                </label>
+                <input type="file" id="buyer-upload" accept=".xlsx, .xls" hidden>
             </div>
         </header>
 
@@ -116,25 +121,11 @@
                         <div class="changelog-container highlight">
                             <h3>O que há de novo? 🚀</h3>
                             <div class="changelog-grid">
-                                <div class="changelog-item">
-                                    <span class="item-icon">🎯</span>
+                                <div class="changelog-item featured">
+                                    <span class="item-icon">👤</span>
                                     <div class="item-text">
-                                        <strong>Precisão no Risco</strong>
-                                        <p>Alertas agora exigem recorrência > 33%.</p>
-                                    </div>
-                                </div>
-                                <div class="changelog-item">
-                                    <span class="item-icon">📅</span>
-                                    <div class="item-text">
-                                        <strong>Janela de Análise</strong>
-                                        <p>Histórico limitado aos últimos 6 meses.</p>
-                                    </div>
-                                </div>
-                                <div class="changelog-item">
-                                    <span class="item-icon">🛡️</span>
-                                    <div class="item-text">
-                                        <strong>Filtro de Dados</strong>
-                                        <p>Bloqueio automático de colunas futuras.</p>
+                                        <strong>Vínculo de Compradores <span class="badge-new">NOVO</span></strong>
+                                        <p>Relacione códigos de produtos aos compradores e utilize o novo filtro de busca por responsável.</p>
                                     </div>
                                 </div>
                                 <div class="changelog-item featured">
@@ -144,11 +135,18 @@
                                         <p>Card exclusivo que rastreia e contabiliza automaticamente itens com pedidos em aberto.</p>
                                     </div>
                                 </div>
-                                <div class="changelog-item full">
+                                <div class="changelog-item">
+                                    <span class="item-icon">🎯</span>
+                                    <div class="item-text">
+                                        <strong>Precisão no Risco</strong>
+                                        <p>Alertas agora exigem recorrência > 33% para evitar falsos positivos.</p>
+                                    </div>
+                                </div>
+                                <div class="changelog-item">
                                     <span class="item-icon">⚙️</span>
                                     <div class="item-text">
-                                        <strong>Melhorias Internas</strong>
-                                        <p>Otimização de cache e correção na leitura de saldos em pedidos.</p>
+                                        <strong>Filtros e Otimizações</strong>
+                                        <p>Novo sistema de busca por fornecedor e comprador, com carregamento cache otimizado.</p>
                                     </div>
                                 </div>
                             </div>
@@ -168,6 +166,10 @@
                                 <span class="search-icon">🏢</span>
                                 <input type="text" id="supplier-search" placeholder="Filtrar fornecedor...">
                             </div>
+                            <div class="search-box">
+                                <span class="search-icon">👤</span>
+                                <input type="text" id="buyer-search" placeholder="Filtrar comprador...">
+                            </div>
                         </div>
                         <div class="filters">
                             <button class="filter-btn active" data-filter="all">Todos</button>
@@ -180,11 +182,8 @@
                                 🧹 Limpar Filtros
                             </button>
                             <div class="export-group">
-                                <button class="btn-export" onclick="exportToExcel(1)">
-                                    📊 Exportar Risco (1m)
-                                </button>
-                                <button class="btn-export" onclick="exportToExcel(3)">
-                                    📋 Sugestão Compra (3m)
+                                <button class="btn-export" id="export-btn">
+                                    📊 Exportar Lista Filtrada
                                 </button>
                             </div>
                         </div>
@@ -197,6 +196,7 @@
                                     <th>Descrição</th>
                                     <th>UN</th>
                                     <th>Fornecedor (Últ.)</th>
+                                    <th>Comprador</th>
                                     <th style="text-align: center;">Estoque</th>
                                     <th style="text-align: center;">Vendas (6m)</th>
                                     <th style="text-align: center; cursor: pointer;" id="sort-recorrencia" class="sortable">

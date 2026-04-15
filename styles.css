@@ -301,7 +301,7 @@ header {
 .search-box {
     position: relative;
     width: 100%;
-    max-width: 400px;
+    max-width: 320px;
 }
 
 .search-icon {
@@ -422,7 +422,7 @@ td {
 }
 
 .td-desc {
-    max-width: 350px;
+    max-width: 250px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -431,7 +431,7 @@ td {
 }
 
 .td-supplier {
-    max-width: 280px;
+    max-width: 200px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
