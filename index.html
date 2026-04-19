@@ -23,7 +23,6 @@
             </linearGradient>
         </defs>
     </svg>
-    <div class="creator-badge">Desenvolvido por Cassyano</div>
     <div class="app-container">
         <header>
             <div class="logo-area">
@@ -88,19 +87,19 @@
             </section>
             
             <div class="criteria-info" id="criteria-legend" style="display: none;">
-                <div>
+                <div class="criteria-item">
                    <span class="badge badge-buy">🚨 RISCO RUPTURA</span> 
-                   <span>Disponível < <strong>1x</strong> Venda Méd. <strong>+</strong> Recorrência > <strong>33%</strong></span>
+                   <span>Disponível &lt; <strong>1x</strong> Venda Méd. <strong>+</strong> Recorrência &gt; <strong>33%</strong></span>
                 </div>
-                <div>
+                <div class="criteria-item">
                    <span class="badge badge-warn">⚡ ATENÇÃO</span> 
-                   <span>Disponível < <strong>2x</strong> Venda Méd. <strong>+</strong> Recorrência > <strong>33%</strong></span>
+                   <span>Disponível &lt; <strong>2x</strong> Venda Méd. <strong>+</strong> Recorrência &gt; <strong>33%</strong></span>
                 </div>
-                <div>
+                <div class="criteria-item">
                    <span class="badge badge-caution">⚠️ SUGESTÃO COMPRA</span> 
-                   <span>Disponível < <strong>3x</strong> Venda Méd. <strong>+</strong> Recorrência > <strong>33%</strong></span>
+                   <span>Disponível &lt; <strong>3x</strong> Venda Méd. <strong>+</strong> Recorrência &gt; <strong>33%</strong></span>
                 </div>
-                <div style="border-left: 1px solid var(--border-color); padding-left: 1.5rem; margin-left: auto;">
+                <div class="criteria-item trend-legend">
                    <span class="trend-indicator trend-up">▲</span>
                    <span class="trend-indicator trend-down">▼</span>
                    <span>Tendência (Venda Últ. Mês vs Penúltimo)</span>
@@ -110,43 +109,46 @@
             <section class="data-section" id="data-section">
                 <!-- Welcome/Changelog board (Replaces Dropzone) -->
                 <div class="welcome-board" id="drop-zone">
+                    <div class="welcome-watermark">Desenvolvido por Cassyano</div>
                     <div class="welcome-content">
                         <div class="welcome-header">
-                            <div class="welcome-icon">💎</div>
-                            <span class="welcome-badge">Atualização v2.1 Disponível</span>
+                            <div class="main-welcome-logo">
+                                <img src="logo-parafuso.png" alt="Brasil do Parafusos">
+                                <span class="company-name">Brasil dos Parafusos</span>
+                            </div>
                             <h2>Bem-vindo ao Gestor de Estoque</h2>
                             <p>Utilize o botão <strong>"Importar Planilha"</strong> no menu superior para iniciar sua análise</p>
                         </div>
                         
-                        <div class="changelog-container highlight">
-                            <h3>O que há de novo? 🚀</h3>
+                        <div class="benefits-container">
+                            <h3 style="color: var(--primary); font-size: 1.2rem; text-align: center; margin-bottom: 2rem;">A Importância da Gestão de Estoque 🚀</h3>
                             <div class="changelog-grid">
-                                <div class="changelog-item featured">
-                                    <span class="item-icon">👤</span>
+                                <div class="changelog-item">
+                                    <span class="item-icon" style="background: rgba(34, 197, 94, 0.1); color: #22c55e;">📈</span>
                                     <div class="item-text">
-                                        <strong>Vínculo de Compradores <span class="badge-new">NOVO</span></strong>
-                                        <p>Relacione códigos de produtos aos compradores e utilize o novo filtro de busca por responsável.</p>
-                                    </div>
-                                </div>
-                                <div class="changelog-item featured">
-                                    <span class="item-icon">📦</span>
-                                    <div class="item-text">
-                                        <strong>Monitoramento de Encomendas <span class="badge-new">NOVO</span></strong>
-                                        <p>Card exclusivo que rastreia e contabiliza automaticamente itens com pedidos em aberto.</p>
+                                        <strong>Redução de Ruptura</strong>
+                                        <p>Identificação proativa de itens em risco, garantindo que você nunca perca uma venda por falta de estoque.</p>
                                     </div>
                                 </div>
                                 <div class="changelog-item">
-                                    <span class="item-icon">🎯</span>
+                                    <span class="item-icon" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6;">💰</span>
                                     <div class="item-text">
-                                        <strong>Precisão no Risco</strong>
-                                        <p>Alertas agora exigem recorrência > 33% para evitar falsos positivos.</p>
+                                        <strong>Saúde Financeira</strong>
+                                        <p>Otimize seu capital evitando o excesso de estoque em itens que não giram, liberando fluxo de caixa.</p>
                                     </div>
                                 </div>
                                 <div class="changelog-item">
-                                    <span class="item-icon">⚙️</span>
+                                    <span class="item-icon" style="background: rgba(234, 179, 8, 0.1); color: #eab308;">⚡</span>
                                     <div class="item-text">
-                                        <strong>Filtros e Otimizações</strong>
-                                        <p>Novo sistema de busca por fornecedor e comprador, com carregamento cache otimizado.</p>
+                                        <strong>Agilidade de Análise</strong>
+                                        <p>Processe milhares de itens em segundos e tenha as sugestões de compra prontas para exportar.</p>
+                                    </div>
+                                </div>
+                                <div class="changelog-item">
+                                    <span class="item-icon" style="background: rgba(168, 85, 247, 0.1); color: #a855f7;">🤝</span>
+                                    <div class="item-text">
+                                        <strong>Decisões Assertivas</strong>
+                                        <p>Baseie suas negociações com fornecedores em dados históricos reais, não em suposições.</p>
                                     </div>
                                 </div>
                             </div>
@@ -166,9 +168,10 @@
                                 <span class="search-icon">🏢</span>
                                 <input type="text" id="supplier-search" placeholder="Filtrar fornecedor...">
                             </div>
-                            <div class="search-box">
-                                <span class="search-icon">👤</span>
-                                <input type="text" id="buyer-search" placeholder="Filtrar comprador...">
+                            <div class="buyer-selector">
+                                <button class="buyer-btn active" data-buyer="all">👤 Todos</button>
+                                <button class="buyer-btn" data-buyer="Cassyano">Cassyano</button>
+                                <button class="buyer-btn" data-buyer="Rafa">Rafa</button>
                             </div>
                         </div>
                         <div class="filters">
@@ -177,7 +180,6 @@
                             <button class="filter-btn" data-filter="attention">⚡ Atenção</button>
                             <button class="filter-btn" data-filter="suggest">⚠️ Sugestão</button>
                             <button class="filter-btn" data-filter="has-order">📦 Com Encomenda</button>
-                            <button class="filter-btn" data-filter="high-rec">🔥 Alta Recorrência</button>
                             <button class="btn btn-secondary" id="clear-filters" style="font-size: 0.8rem; padding: 0.5rem 1rem;">
                                 🧹 Limpar Filtros
                             </button>

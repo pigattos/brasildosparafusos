@@ -205,6 +205,7 @@ header {
 
 /* Welcome Board (Replaces Drop Zone) */
 .welcome-board {
+    position: relative; /* For watermark positioning */
     width: 100%;
     min-height: 500px;
     border: 1px solid var(--border-color);
@@ -217,10 +218,30 @@ header {
                 rgba(255, 255, 255, 0.02);
     backdrop-filter: blur(10px);
     transition: all var(--transition-mid);
+    overflow: hidden;
+}
+
+.welcome-watermark {
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.03);
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid rgba(75, 85, 99, 0.2);
+    backdrop-filter: blur(4px);
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    opacity: 0.3;
+    pointer-events: none;
+    user-select: none;
+    text-transform: uppercase;
 }
 
 .welcome-content {
-    max-width: 800px;
+    max-width: 1100px;
     width: 100%;
     text-align: center;
 }
@@ -229,24 +250,28 @@ header {
     margin-bottom: 3rem;
 }
 
-.welcome-icon {
-    font-size: 3.5rem;
-    margin-bottom: 1.5rem;
-    filter: drop-shadow(0 0 15px var(--primary));
+.main-welcome-logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 2rem;
+    gap: 0;
 }
 
-.welcome-badge {
-    background: rgba(99, 102, 241, 0.15);
-    color: var(--primary);
-    padding: 6px 14px;
-    border-radius: 30px;
-    font-size: 0.75rem;
+.main-welcome-logo img {
+    width: 120px;
+    filter: drop-shadow(0 0 25px rgba(99, 102, 241, 0.4));
+}
+
+.main-welcome-logo .company-name {
+    font-size: 1.1rem;
     font-weight: 700;
+    font-family: 'Inter', sans-serif;
+    color: #f59e0b;
     text-transform: uppercase;
-    letter-spacing: 2px;
-    border: 1px solid var(--primary);
-    display: inline-block;
-    margin-bottom: 1.5rem;
+    letter-spacing: 4px;
+    text-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
 }
 
 .welcome-header h2 {
@@ -365,6 +390,41 @@ table {
 .filter-btn.active {
     background: var(--primary);
     border-color: var(--primary);
+}
+
+/* Buyer Selector Styling */
+.buyer-selector {
+    display: flex;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 4px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+}
+
+.buyer-btn {
+    background: transparent;
+    border: none;
+    padding: 0.6rem 1.2rem;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.8rem;
+    font-family: 'Outfit', sans-serif;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+}
+
+.buyer-btn:hover {
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.buyer-btn.active {
+    background: var(--primary);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
 }
 
 thead {
@@ -662,11 +722,11 @@ tr:hover {
 
 /* Legend/Info Section */
 .criteria-info {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 2rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
     margin-bottom: 2.5rem;
-    padding: 1.2rem 1.5rem;
+    padding: 1.5rem 2rem;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
@@ -675,15 +735,33 @@ tr:hover {
     backdrop-filter: blur(8px);
 }
 
-.criteria-info div {
+.criteria-item {
     display: flex;
     align-items: center;
     gap: 10px;
 }
 
+.trend-legend {
+    border-left: 1px solid var(--border-color);
+    padding-left: 1.5rem;
+    justify-content: flex-start;
+}
+
 .criteria-info strong {
     color: var(--text-main);
     font-weight: 600;
+}
+
+@media (max-width: 900px) {
+    .criteria-info {
+        grid-template-columns: 1fr;
+    }
+    .trend-legend {
+        border-left: none;
+        padding-left: 0;
+        border-top: 1px solid var(--border-color);
+        padding-top: 1rem;
+    }
 }
 
 /* Footer */
@@ -755,23 +833,24 @@ footer {
 .changelog-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 1.5rem;
+    gap: 2.5rem;
 }
 
 .changelog-item {
     display: flex;
-    gap: 15px;
-    padding: 1rem;
-    background: rgba(255, 255, 255, 0.03);
-    border-radius: var(--radius-md);
-    border: 1px solid transparent;
+    gap: 20px;
+    padding: 2rem;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(255, 255, 255, 0.05);
     transition: all var(--transition-fast);
+    text-align: left;
 }
 
 .changelog-item:hover {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: var(--border-color);
-    transform: translateX(5px);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--primary);
+    transform: translateY(-5px);
 }
 
 .changelog-item.full {
@@ -779,21 +858,23 @@ footer {
 }
 
 .item-icon {
-    font-size: 1.25rem;
+    font-size: 2.2rem;
     flex-shrink: 0;
+    width: 65px !important;
+    height: 65px !important;
 }
 
 .item-text strong {
     display: block;
-    font-size: 0.9rem;
-    margin-bottom: 4px;
+    font-size: 1.15rem;
+    margin-bottom: 8px;
     color: var(--text-main);
 }
 
 .item-text p {
-    font-size: 0.8rem;
+    font-size: 0.95rem;
     color: var(--text-muted);
-    line-height: 1.4;
+    line-height: 1.6;
 }
 
 @media (max-width: 768px) {
@@ -839,5 +920,30 @@ footer {
     border-radius: 4px;
     letter-spacing: 1px;
     font-weight: 800;
+}
+
+.benefits-container {
+    margin-top: 1rem;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 2.5rem;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+}
+
+.changelog-container h3, .benefits-container h3 {
+    margin-bottom: 2.5rem;
+    color: var(--text-main);
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.benefits-container .item-icon {
+    width: 45px;
+    height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
 }
 

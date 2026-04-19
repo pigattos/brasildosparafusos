@@ -7,11 +7,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const tableBody = document.getElementById('table-body');
     const tableSearch = document.getElementById('table-search');
     const supplierSearch = document.getElementById('supplier-search');
-    const buyerSearch = document.getElementById('buyer-search');
+    const buyerBtns = document.querySelectorAll('.buyer-btn');
     const buyerUpload = document.getElementById('buyer-upload');
     const filterBtns = document.querySelectorAll('.filter-btn');
     const clearFiltersBtn = document.getElementById('clear-filters');
     const chartSection = document.getElementById('chart-section');
+
 
     // Register ChartJS Plugin
     Chart.register(ChartDataLabels);
@@ -19,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentData = [];
     let filteredData = [];
     let activeFilters = ['all'];
+    let activeBuyer = 'all';
     let sortRecorrenciaDir = 'none';
     let myChart = null;
     let supplierChart = null;
@@ -803,22 +805,15 @@ document.addEventListener('DOMContentLoaded', () => {
     function applyAllFilters() {
         const prodTerm = tableSearch.value.toLowerCase();
         const suppTerm = supplierSearch.value.toLowerCase();
-        const buyerTerm = buyerSearch.value.toLowerCase();
-
         filteredData = currentData.filter(i => {
-            // 1. Filter by Product search (optimized to ignore symbols like dots)
             const cleanProd = i.produto.toString().replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
             const cleanTerm = prodTerm.replace(/[^a-zA-Z0-9]/g, '');
-            
             const matchProd = cleanProd.includes(cleanTerm) || 
                               i.grupo.toString().toLowerCase().includes(prodTerm) ||
                               i.descricao.toString().toLowerCase().includes(prodTerm);
             
-            // 2. Filter by Supplier search
             const matchSupp = i.fornecedor.toString().toLowerCase().includes(suppTerm);
-
-            // 3. Filter by Buyer search
-            const matchBuyer = i.comprador.toString().toLowerCase().includes(buyerTerm);
+            const matchBuyer = activeBuyer === 'all' || i.comprador.toLowerCase() === activeBuyer.toLowerCase();
             
             // 4. Filter by Buttons (Status) - Intelligent multi-select logic
             let matchStatus = true;
@@ -837,7 +832,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Item must also match ALL selected flags (AND logic for flags)
                 let passFlags = true;
                 if (flagFilters.includes('has-order') && !i.temEncomenda) passFlags = false;
-                if (flagFilters.includes('high-rec') && parseFloat(i.recorrencia) <= 50) passFlags = false;
                 
                 matchStatus = passStatus && passFlags;
             }
@@ -898,7 +892,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // Combined search logic
     tableSearch.addEventListener('input', applyAllFilters);
     supplierSearch.addEventListener('input', applyAllFilters);
-    buyerSearch.addEventListener('input', applyAllFilters);
+    
+    buyerBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            activeBuyer = btn.getAttribute('data-buyer');
+            buyerBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            applyAllFilters();
+        });
+    });
 
     buyerUpload.addEventListener('change', (e) => {
         handleBuyerFile(e.target.files[0]);
@@ -931,7 +933,11 @@ document.addEventListener('DOMContentLoaded', () => {
     clearFiltersBtn.addEventListener('click', () => {
         tableSearch.value = '';
         supplierSearch.value = '';
-        buyerSearch.value = '';
+        activeBuyer = 'all';
+        buyerBtns.forEach(btn => {
+            if (btn.getAttribute('data-buyer') === 'all') btn.classList.add('active');
+            else btn.classList.remove('active');
+        });
         activeFilters = ['all'];
         filterBtns.forEach(btn => {
             const btnFilter = btn.getAttribute('data-filter');
