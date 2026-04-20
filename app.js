@@ -13,6 +13,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const clearFiltersBtn = document.getElementById('clear-filters');
     const chartSection = document.getElementById('chart-section');
 
+    // Modal Logic
+    const rulesModal = document.getElementById('rules-modal');
+    const openRulesBtn = document.getElementById('open-rules-btn');
+    const closeRulesBtn = document.getElementById('close-rules-btn');
+
+    if (openRulesBtn && closeRulesBtn && rulesModal) {
+        openRulesBtn.addEventListener('click', () => {
+            rulesModal.classList.add('active');
+        });
+        closeRulesBtn.addEventListener('click', () => {
+            rulesModal.classList.remove('active');
+        });
+        rulesModal.addEventListener('click', (e) => {
+            if (e.target === rulesModal) rulesModal.classList.remove('active');
+        });
+    }
 
     // Register ChartJS Plugin
     Chart.register(ChartDataLabels);
@@ -196,7 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 'Pendência', 'Qtd. no Pedido', 'Encomenda', 'Pedido', 'Qtd Ped Compra', 'A Receber Total',
                 'A Entregar', 'Saldo a Entregar', 'Qtd. Pendente', 'Pendente', 'Saldo O.C.', 'Ord. Compra'
             ]);
-            const custoObj = getValue(row, ['Custo aquisição', 'Custo Unitário', 'Custo', 'Preço Custo', 'Vlr. Custo', 'Custo Médio', 'Unitário']);
+            const custoObj = getValue(row, ['Preço reposição', 'Custo aquisição', 'Custo Unitário', 'Custo', 'Preço Custo', 'Vlr. Custo', 'Custo Médio', 'Unitário']);
 
             let vendas = parseNum(vendasObj.value);
             const recData = calculateRecurrence(row, monthCols);
@@ -261,6 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 vendas,
                 medVenda: medVenda.toFixed(3),
                 tendencia,
+                custoRaw: custo,
                 custo: custo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
                 recorrencia: recorrencia.toFixed(0),
                 historico: monthCols.map(col => Math.max(0, parseNum(row[col]))), // Ensure non-negative history for chart
@@ -416,18 +433,38 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // Update stats (using current filtered data)
+        const formatValue = (val) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        
         const totalItems = data.length;
-        const buyCount = data.filter(i => i.situacao === 'ruptura').length;
-        const attentionCount = data.filter(i => i.situacao === 'atencao').length;
-        const suggestCount = data.filter(i => i.situacao === 'sugestao').length;
-        const ordersCount = data.filter(i => i.temEncomenda).length;
+        const buyItems = data.filter(i => i.situacao === 'ruptura');
+        const attentionItems = data.filter(i => i.situacao === 'atencao');
+        const suggestItems = data.filter(i => i.situacao === 'sugestao');
+        const orderItems = data.filter(i => i.temEncomenda);
+
+        const sumValEstoque = (items) => items.reduce((acc, i) => acc + (i.estoque * (parseFloat(i.custoRaw) || 0)), 0);
+        const sumValAlerts = (items, m) => items.reduce((acc, i) => acc + ((parseFloat(i.medVenda) || 0) * m * (parseFloat(i.custoRaw) || 0)), 0);
+        const sumOrderVal = (items) => items.reduce((acc, i) => acc + (i.encomendas * (parseFloat(i.custoRaw) || 0)), 0);
 
         document.getElementById('total-items').textContent = totalItems;
-        document.getElementById('to-buy-count').textContent = buyCount;
-        document.getElementById('attention-count').textContent = attentionCount;
-        document.getElementById('suggestion-count').textContent = suggestCount;
+        const totalValueEl = document.getElementById('total-value');
+        if (totalValueEl) totalValueEl.textContent = formatValue(sumValEstoque(data));
+
+        document.getElementById('to-buy-count').textContent = buyItems.length;
+        const buyValueEl = document.getElementById('buy-value');
+        if (buyValueEl) buyValueEl.textContent = formatValue(sumValAlerts(buyItems, 1));
+
+        document.getElementById('attention-count').textContent = attentionItems.length;
+        const attentionValueEl = document.getElementById('attention-value');
+        if (attentionValueEl) attentionValueEl.textContent = formatValue(sumValAlerts(attentionItems, 2));
+
+        document.getElementById('suggestion-count').textContent = suggestItems.length;
+        const suggestionValueEl = document.getElementById('suggestion-value');
+        if (suggestionValueEl) suggestionValueEl.textContent = formatValue(sumValAlerts(suggestItems, 3));
+
         const ordersCountEl = document.getElementById('orders-count');
-        if (ordersCountEl) ordersCountEl.textContent = ordersCount;
+        if (ordersCountEl) ordersCountEl.textContent = orderItems.length;
+        const ordersValueEl = document.getElementById('orders-value');
+        if (ordersValueEl) ordersValueEl.textContent = formatValue(sumOrderVal(orderItems));
 
         // Update Charts with filtered data
         updateChart(data);
@@ -576,7 +613,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function showDashboard() {
         dropZone.style.display = 'none';
         chartSection.style.display = 'flex';
-        statsSection.style.display = 'grid';
+        statsSection.style.display = 'flex';
         document.getElementById('criteria-legend').style.display = 'flex';
         tableContainer.style.display = 'block';
     }

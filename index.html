@@ -63,47 +63,60 @@
                 </div>
             </section>
 
-            <section class="welcome-stats" id="stats-section" style="display: none;">
-                <div class="stat-card">
-                    <span class="stat-label">Itens Analisados</span>
-                    <span class="stat-value" id="total-items">0</span>
+            <section id="stats-section" style="display: none; align-items: stretch; flex-wrap: wrap; gap: 2rem; margin-bottom: 2rem;">
+                
+                <!-- Group: Cálculo de Estoque -->
+                <div style="display: flex; flex-direction: column; gap: 0.8rem; flex: 2; min-width: 300px; background: linear-gradient(180deg, rgba(56,189,248,0.06) 0%, transparent 100%); border: 1px solid rgba(56,189,248,0.15); border-radius: 16px; padding: 1.5rem; position: relative;">
+                    <div style="font-size: 0.85rem; color: #38bdf8; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; opacity: 0.9;">📦 Cálculo de Estoque</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; height: 100%;">
+                        <div class="stat-card">
+                            <span class="stat-label">Itens Analisados</span>
+                            <span class="stat-value" id="total-items">0</span>
+                            <span class="stat-sub" id="total-value" style="font-size: 0.85rem; color: var(--text-muted); margin-top: -2px;">R$ 0,00</span>
+                        </div>
+                        <div class="stat-card info" id="orders-card-wrapper">
+                            <span class="stat-label">Itens em Pedido</span>
+                            <span class="stat-value" id="orders-count">0</span>
+                            <span class="stat-sub" id="orders-value" style="font-size: 0.85rem; color: var(--info); margin-top: -2px; opacity: 0.8;">R$ 0,00</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="stat-card urgent" id="risk-card">
-                    <span class="stat-label">Ruptura (1m)</span>
-                    <span class="stat-value" id="to-buy-count">0</span>
+
+                <!-- Group: Projeções -->
+                <div style="display: flex; flex-direction: column; gap: 0.8rem; flex: 3; min-width: 450px; background: linear-gradient(180deg, rgba(168,85,247,0.06) 0%, transparent 100%); border: 1px solid rgba(168,85,247,0.15); border-radius: 16px; padding: 1.5rem; position: relative;">
+                    <div style="font-size: 0.85rem; color: #a855f7; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; opacity: 0.9;">🔮 Projeções de Ruptura (Capital)</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; height: 100%;">
+                        <div class="stat-card urgent" id="risk-card">
+                            <span class="stat-label">Ruptura (1m)</span>
+                            <span class="stat-value" id="to-buy-count">0</span>
+                            <span class="stat-sub" id="buy-value" style="font-size: 0.85rem; color: var(--danger); margin-top: -2px; opacity: 0.8;">R$ 0,00</span>
+                        </div>
+                        <div class="stat-card attention" id="attention-card-wrapper">
+                            <span class="stat-label">Atenção (2m)</span>
+                            <span class="stat-value" id="attention-count">0</span>
+                            <span class="stat-sub" id="attention-value" style="font-size: 0.85rem; color: #f97316; margin-top: -2px; opacity: 0.8;">R$ 0,00</span>
+                        </div>
+                        <div class="stat-card warning" id="suggestion-card">
+                            <span class="stat-label">Sugestão (3m)</span>
+                            <span class="stat-value" id="suggestion-count">0</span>
+                            <span class="stat-sub" id="suggestion-value" style="font-size: 0.85rem; color: #eab308; margin-top: -2px; opacity: 0.8;">R$ 0,00</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="stat-card attention" id="attention-card-wrapper">
-                    <span class="stat-label">Atenção (2m)</span>
-                    <span class="stat-value" id="attention-count">0</span>
-                </div>
-                <div class="stat-card warning" id="suggestion-card">
-                    <span class="stat-label">Sugestão (3m)</span>
-                    <span class="stat-value" id="suggestion-count">0</span>
-                </div>
-                <div class="stat-card info" id="orders-card-wrapper">
-                    <span class="stat-label">Itens em Pedido</span>
-                    <span class="stat-value" id="orders-count">0</span>
-                </div>
+
             </section>
             
-            <div class="criteria-info" id="criteria-legend" style="display: none;">
-                <div class="criteria-item">
-                   <span class="badge badge-buy">🚨 RISCO RUPTURA</span> 
-                   <span>Disponível &lt; <strong>1x</strong> Venda Méd. <strong>+</strong> Recorrência &gt; <strong>33%</strong></span>
+            <div class="criteria-info" id="criteria-legend" style="display: none; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; margin-bottom: 1.5rem;">
+                <div style="display: flex; gap: 1.5rem; align-items: center; flex-wrap: wrap;">
+                    <span class="badge badge-buy">🚨 RISCO RUPTURA</span> 
+                    <span class="badge badge-warn">⚡ ATENÇÃO</span> 
+                    <span class="badge badge-caution">⚠️ SUGESTÃO COMPRA</span>
+                    <span class="trend-indicator trend-up" title="Tendência de Alta">▲</span>
+                    <span class="trend-indicator trend-down" title="Tendência de Baixa">▼</span>
                 </div>
-                <div class="criteria-item">
-                   <span class="badge badge-warn">⚡ ATENÇÃO</span> 
-                   <span>Disponível &lt; <strong>2x</strong> Venda Méd. <strong>+</strong> Recorrência &gt; <strong>33%</strong></span>
-                </div>
-                <div class="criteria-item">
-                   <span class="badge badge-caution">⚠️ SUGESTÃO COMPRA</span> 
-                   <span>Disponível &lt; <strong>3x</strong> Venda Méd. <strong>+</strong> Recorrência &gt; <strong>33%</strong></span>
-                </div>
-                <div class="criteria-item trend-legend">
-                   <span class="trend-indicator trend-up">▲</span>
-                   <span class="trend-indicator trend-down">▼</span>
-                   <span>Tendência (Venda Últ. Mês vs Penúltimo)</span>
-                </div>
+                <button id="open-rules-btn" class="btn btn-secondary" style="padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.85rem; border: 1px solid var(--primary); color: white; background: rgba(99, 102, 241, 0.2);">
+                    <span class="btn-icon">📚</span> Entender a Matemática
+                </button>
             </div>
 
             <section class="data-section" id="data-section">
@@ -121,34 +134,35 @@
                         </div>
                         
                         <div class="benefits-container">
-                            <h3 style="color: var(--primary); font-size: 1.2rem; text-align: center; margin-bottom: 2rem;">A Importância da Gestão de Estoque 🚀</h3>
+                            <h3 style="color: var(--primary); font-size: 1.2rem; text-align: center; margin-bottom: 2rem;">✨ Atualizações Recentes do seu Sistema 🚀</h3>
                             <div class="changelog-grid">
-                                <div class="changelog-item">
-                                    <span class="item-icon" style="background: rgba(34, 197, 94, 0.1); color: #22c55e;">📈</span>
+                                <div class="changelog-item" style="border: 1px dashed rgba(59, 130, 246, 0.4); background: rgba(59, 130, 246, 0.05);">
+                                    <span class="item-icon" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6;">👤</span>
                                     <div class="item-text">
-                                        <strong>Redução de Ruptura</strong>
-                                        <p>Identificação proativa de itens em risco, garantindo que você nunca perca uma venda por falta de estoque.</p>
+                                        <strong>Filtro por Comprador</strong>
+                                        <p>Faça upload de uma lista de compradores e isole a visão dos dados para a sua carteira localmente em uma interface dinâmica.</p>
                                     </div>
                                 </div>
-                                <div class="changelog-item">
-                                    <span class="item-icon" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6;">💰</span>
+                                <div class="changelog-item" style="border: 2px solid #10b981; background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.02) 100%); transform: translateY(-5px); box-shadow: 0 10px 25px rgba(16, 185, 129, 0.2); position: relative; overflow: hidden; z-index: 10;">
+                                    <div style="position: absolute; top: 0; right: 0; background: #10b981; color: #022c22; font-size: 0.7rem; font-weight: 800; padding: 4px 15px; border-bottom-left-radius: 12px; letter-spacing: 1px; text-transform: uppercase; box-shadow: -2px 2px 10px rgba(0,0,0,0.2);">Grande Destaque</div>
+                                    <span class="item-icon" style="background: rgba(16, 185, 129, 0.2); color: #34d399; box-shadow: 0 0 20px rgba(16, 185, 129, 0.5); transform: scale(1.1);">💰</span>
                                     <div class="item-text">
-                                        <strong>Saúde Financeira</strong>
-                                        <p>Otimize seu capital evitando o excesso de estoque em itens que não giram, liberando fluxo de caixa.</p>
+                                        <strong style="color: #34d399; font-size: 1.1rem;">Capital Financeiro Alvo</strong>
+                                        <p style="color: #f8fafc; font-weight: 500;">Integração total do 'Preço de Reposição' para converter riscos de falta de estoque rapidamente em Valores Monetários ($).</p>
                                     </div>
                                 </div>
-                                <div class="changelog-item">
-                                    <span class="item-icon" style="background: rgba(234, 179, 8, 0.1); color: #eab308;">⚡</span>
+                                <div class="changelog-item" style="border: 1px dashed rgba(168, 85, 247, 0.4); background: rgba(168, 85, 247, 0.05);">
+                                    <span class="item-icon" style="background: rgba(168, 85, 247, 0.1); color: #a855f7;">📚</span>
                                     <div class="item-text">
-                                        <strong>Agilidade de Análise</strong>
-                                        <p>Processe milhares de itens em segundos e tenha as sugestões de compra prontas para exportar.</p>
+                                        <strong>Transparência de Regras</strong>
+                                        <p>Novo menu oculto com quadro explicativo completo acessível dentro da interface com todas fórmulas de cálculo.</p>
                                     </div>
                                 </div>
-                                <div class="changelog-item">
-                                    <span class="item-icon" style="background: rgba(168, 85, 247, 0.1); color: #a855f7;">🤝</span>
+                                <div class="changelog-item" style="border: 1px dashed rgba(234, 179, 8, 0.4); background: rgba(234, 179, 8, 0.05);">
+                                    <span class="item-icon" style="background: rgba(234, 179, 8, 0.1); color: #eab308;">📐</span>
                                     <div class="item-text">
-                                        <strong>Decisões Assertivas</strong>
-                                        <p>Baseie suas negociações com fornecedores em dados históricos reais, não em suposições.</p>
+                                        <strong>Nova UI & Grid Clean</strong>
+                                        <p>Estilos refinados, responsividade premium e layout focado em não poluir a sua visualização contínua.</p>
                                     </div>
                                 </div>
                             </div>
@@ -219,6 +233,98 @@
         <footer>
             <p>&copy; 2026 Sistema de Análise de Giro e Compras - Pronto para o Futuro</p>
         </footer>
+    </div>
+
+    <!-- Modal Metodologia -->
+    <div id="rules-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📚 Entendendo a Matemática do Estoque</h2>
+                <button id="close-rules-btn" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="rules-grid">
+
+                    <h3 style="grid-column: 1 / -1; font-size: 1.3rem; color: #38bdf8; border-bottom: 1px solid rgba(56, 189, 248, 0.3); padding-bottom: 0.5rem; margin-top: 0;">📦 Cálculo de Estoque</h3>
+                    
+                    <div class="rule-card">
+                        <span class="badge badge-ok" style="background: rgba(255,255,255,0.1); border:none; color: #fff; margin-bottom: 10px; display: inline-block;">📊 ITENS ANALISADOS</span>
+                        <h3>Contagem Total</h3>
+                        <p>Quantidade de SKUs únicos com movimentação na sua planilha.</p>
+                        <div class="rule-math">
+                            <strong>💰 Cálculo do Valor Financeiro:</strong><br>
+                            <code>Estoque Atual × Preço de Reposição</code>
+                        </div>
+                    </div>
+
+                    <div class="rule-card">
+                        <span class="badge badge-ok" style="background: rgba(14, 165, 233, 0.1); border: 1px solid rgba(14, 165, 233, 0.3); color: #0ea5e9; margin-bottom: 10px; display: inline-block;">📦 EM PEDIDO</span>
+                        <h3>Compras já em andamento</h3>
+                        <p>Mostra todo o volume que consta como pendente para chegada no registro de Encomendas.</p>
+                        <div class="rule-math">
+                            <strong>💰 Cálculo do Valor Financeiro Futuro:</strong><br>
+                            <code>Qtd de Encomendas Pendentes × Preço de Reposição</code>
+                        </div>
+                    </div>
+
+
+                    <h3 style="grid-column: 1 / -1; font-size: 1.3rem; color: #facc15; border-bottom: 1px solid rgba(250, 204, 21, 0.3); padding-bottom: 0.5rem; margin-top: 1rem;">🔮 Projeção (Metas de Capital)</h3>
+
+                    <div class="rule-card">
+                        <span class="badge badge-buy" style="margin-bottom: 10px; display: inline-block;">🚨 RISCO RUPTURA (1m)</span>
+                        <h3>Alerta Crítico</h3>
+                        <p>Itens que não possuem estoque suficiente para durar <strong>1 mês</strong> de vendas se baseando no histórico.</p>
+                        <div class="rule-math">
+                            <strong>⚠️ Condição de Entrada:</strong><br>
+                            <code>(Disp. &lt; Vendas Médias * 1) AND (Recorrência &gt; 33%)</code><br><br>
+                            <strong>💰 Capital Alvo Projetado:</strong><br>
+                            <code>Média Venda × 1 mês × Preço de Reposição</code>
+                        </div>
+                    </div>
+
+                    <div class="rule-card">
+                        <span class="badge badge-warn" style="margin-bottom: 10px; display: inline-block;">⚡ ATENÇÃO (2m)</span>
+                        <h3>Monitoramento de Estoque</h3>
+                        <p>A quantidade projetada só é suficiente para no máximo <strong>2 meses</strong> de operação padrão.</p>
+                        <div class="rule-math">
+                            <strong>⚠️ Condição de Entrada:</strong><br>
+                            <code>(Disp. &lt; Vendas Médias * 2) AND (Recorrência &gt; 33%)</code><br><br>
+                            <strong>💰 Capital Alvo Projetado:</strong><br>
+                            <code>Média Venda × 2 meses × Preço de Reposição</code>
+                        </div>
+                    </div>
+
+                    <div class="rule-card">
+                        <span class="badge badge-caution" style="margin-bottom: 10px; display: inline-block;">⚠️ SUGESTÃO (3m)</span>
+                        <h3>Garantindo Estoque Base</h3>
+                        <p>Itens que vão entrar na sua zona amarela logo. Não durarão por <strong>3 meses</strong> caso haja um aumento de demanda leve.</p>
+                        <div class="rule-math">
+                            <strong>⚠️ Condição de Entrada:</strong><br>
+                            <code>(Disp. &lt; Vendas Médias * 3) AND (Recorrência &gt; 33%)</code><br><br>
+                            <strong>💰 Capital Alvo Projetado:</strong><br>
+                            <code>Média Venda × 3 meses × Preço de Reposição</code>
+                        </div>
+                    </div>
+
+
+                    <h3 style="grid-column: 1 / -1; font-size: 1.3rem; color: #a855f7; border-bottom: 1px solid rgba(168, 85, 247, 0.3); padding-bottom: 0.5rem; margin-top: 1rem;">📈 Visualizações Adicionais</h3>
+
+                    <div class="rule-card" style="background: rgba(99, 102, 241, 0.05); border-color: rgba(99, 102, 241, 0.3);">
+                        <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                            <span class="trend-indicator trend-up">▲</span>
+                            <span class="trend-indicator trend-down">▼</span>
+                        </div>
+                        <h3>Indicadores de Tendência</h3>
+                        <p>Baseia-se em variação bruta para te dar noção visual de crescimento da venda.</p>
+                        <div class="rule-math">
+                            <strong>▲ Aumento de Venda:</strong> Último Mês &gt; Penúltimo Mês.<br>
+                            <strong>▼ Queda de Venda:</strong> Último Mês &lt; Penúltimo Mês.
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Scripts -->
