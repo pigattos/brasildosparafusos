@@ -237,7 +237,6 @@ header {
     opacity: 0.3;
     pointer-events: none;
     user-select: none;
-    text-transform: uppercase;
 }
 
 .welcome-content {
@@ -260,18 +259,24 @@ header {
 }
 
 .main-welcome-logo img {
-    width: 120px;
-    filter: drop-shadow(0 0 25px rgba(99, 102, 241, 0.4));
+    width: 72px;
+    opacity: 0.85;
+    filter: drop-shadow(0 0 10px rgba(99, 102, 241, 0.2));
+    transition: opacity var(--transition-mid), filter var(--transition-mid);
+}
+
+.main-welcome-logo img:hover {
+    opacity: 1;
+    filter: drop-shadow(0 0 16px rgba(99, 102, 241, 0.35));
 }
 
 .main-welcome-logo .company-name {
-    font-size: 1.1rem;
-    font-weight: 700;
+    font-size: 0.7rem;
+    font-weight: 400;
     font-family: 'Inter', sans-serif;
-    color: #f59e0b;
+    color: rgba(245, 158, 11, 0.65);
     text-transform: uppercase;
-    letter-spacing: 4px;
-    text-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+    letter-spacing: 3px;
 }
 
 .welcome-header h2 {
@@ -960,15 +965,15 @@ footer {
 .changelog-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 2.5rem;
+    gap: 1.2rem;
 }
 
 .changelog-item {
     display: flex;
-    gap: 20px;
-    padding: 2rem;
+    gap: 14px;
+    padding: 1.1rem 1.3rem;
     background: rgba(255, 255, 255, 0.04);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
     border: 1px solid rgba(255, 255, 255, 0.05);
     transition: all var(--transition-fast);
     text-align: left;
@@ -985,23 +990,23 @@ footer {
 }
 
 .item-icon {
-    font-size: 2.2rem;
+    font-size: 1.5rem;
     flex-shrink: 0;
-    width: 65px !important;
-    height: 65px !important;
+    width: 46px !important;
+    height: 46px !important;
 }
 
 .item-text strong {
     display: block;
-    font-size: 1.15rem;
-    margin-bottom: 8px;
+    font-size: 0.95rem;
+    margin-bottom: 5px;
     color: var(--text-main);
 }
 
 .item-text p {
-    font-size: 0.95rem;
+    font-size: 0.82rem;
     color: var(--text-muted);
-    line-height: 1.6;
+    line-height: 1.5;
 }
 
 @media (max-width: 768px) {
@@ -1054,7 +1059,7 @@ footer {
     background: rgba(0, 0, 0, 0.2);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
-    padding: 2.5rem;
+    padding: 1.5rem;
     box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
 }
 
@@ -1066,11 +1071,11 @@ footer {
 }
 
 .benefits-container .item-icon {
-    width: 45px;
-    height: 45px;
+    width: 46px;
+    height: 46px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 12px;
+    border-radius: 10px;
 }
 
