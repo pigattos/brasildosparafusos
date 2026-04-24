@@ -12,6 +12,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const filterBtns = document.querySelectorAll('.filter-btn');
     const clearFiltersBtn = document.getElementById('clear-filters');
     const chartSection = document.getElementById('chart-section');
+    const loadingOverlay = document.getElementById('loading-overlay');
+
+    // --- Loading Control ---
+    function showLoading() {
+        if (loadingOverlay) loadingOverlay.style.display = 'flex';
+        document.body.classList.add('loading-active');
+    }
+
+    function hideLoading() {
+        if (loadingOverlay) loadingOverlay.style.display = 'none';
+        document.body.classList.remove('loading-active');
+    }
+
 
     // Modal Logic
     const rulesModal = document.getElementById('rules-modal');
@@ -527,7 +540,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleFile(file) {
         if (!file) return;
 
+        showLoading();
+
         const reader = new FileReader();
+
         reader.onload = (e) => {
             try {
                 const data = new Uint8Array(e.target.result);
@@ -553,10 +569,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 showDashboard();
                 renderTable(filteredData);
+                
+                // Pequeno delay para garantir que o DOM renderizou antes de tirar o loading
+                setTimeout(hideLoading, 500);
             } catch (err) {
                 console.error('Erro ao processar arquivo:', err);
                 alert('Ocorreu um erro ao ler a planilha. Verifique se o formato está correto.');
+                hideLoading();
             }
+
         };
         reader.readAsArrayBuffer(file);
     }
@@ -566,7 +587,9 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     function handleBuyerFile(file) {
         if (!file) return;
+        showLoading();
         const reader = new FileReader();
+
         reader.onload = (e) => {
             try {
                 const data = new Uint8Array(e.target.result);
@@ -602,10 +625,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 // If there's already data, re-process it to show buyers immediately
                 // However, processData needs rawData which we don't store globally in its raw form.
                 // For now, simple alert is enough; the user will re-upload or it's ready for next.
+                hideLoading();
             } catch (err) {
                 console.error('Erro ao processar arquivo de compradores:', err);
                 alert('Erro ao ler arquivo de compradores.');
+                hideLoading();
             }
+
         };
         reader.readAsArrayBuffer(file);
     }

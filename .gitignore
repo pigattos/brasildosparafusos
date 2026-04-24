@@ -1,0 +1,6 @@
+node_modules/
+.agent/
+data-entradas.js
+temp_data.json
+temp_data_utf8.json
+package-lock.json
