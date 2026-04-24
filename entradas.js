@@ -29,10 +29,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Auto Load Logic ---
     if (typeof PRE_LOADED_ENTRADAS !== 'undefined' && PRE_LOADED_ENTRADAS.length > 0) {
-        nfData = PRE_LOADED_ENTRADAS.map(item => ({
-            ...item,
-            rawDate: parseNFDate(item.date)
-        })).filter(item => !isNaN(item.rawDate.getTime()));
+        nfData = PRE_LOADED_ENTRADAS.map(item => {
+            const dateObj = parseNFDate(item.date);
+            return {
+                ...item,
+                date: formatDate(dateObj),
+                rawDate: dateObj
+            };
+        }).filter(item => !isNaN(item.rawDate.getTime()));
         
         if (welcomeView) welcomeView.style.display = 'none';
         if (dashboardView) dashboardView.style.display = 'block';
@@ -122,7 +126,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const dateObj = parseExcelDate(rawDateValue);
 
             return {
-                date: typeof rawDateValue === 'string' && rawDateValue.includes('-') ? rawDateValue : formatDate(dateObj),
+                date: formatDate(dateObj),
                 rawDate: dateObj,
                 supplier: supplier.toString().trim(),
                 value: value
@@ -305,11 +309,15 @@ document.addEventListener('DOMContentLoaded', () => {
         // Extrair meses únicos
         const monthsMap = new Map();
         nfData.forEach(item => {
-            const key = item.date.substring(0, 7); // "YYYY-MM"
+            const d = item.rawDate;
+            if (!d || isNaN(d.getTime())) return;
+            
+            const year = d.getFullYear();
+            const month = d.getMonth() + 1;
+            const key = `${year}-${month.toString().padStart(2, '0')}`;
+            
             if (!monthsMap.has(key)) {
-                const [year, month] = key.split('-');
-                const date = new Date(year, month - 1);
-                const monthName = date.toLocaleString('pt-br', { month: 'long' });
+                const monthName = d.toLocaleString('pt-br', { month: 'long' });
                 monthsMap.set(key, { key, monthName, year });
             }
         });
@@ -369,7 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const map = {};
         data.forEach(item => {
             const dateStr = item.date;
-            if (!map[dateStr]) map[dateStr] = { total: 0, count: 0 };
+            if (!map[dateStr]) map[dateStr] = { total: 0, count: 0, raw: item.rawDate };
             map[dateStr].total += item.value;
             map[dateStr].count += 1;
         });
@@ -380,7 +388,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 date, 
                 total: stats.total, 
                 count: stats.count,
-                raw: new Date(date.split('/').reverse().join('-')) 
+                raw: stats.raw 
             }))
             .sort((a, b) => a.raw - b.raw);
     }

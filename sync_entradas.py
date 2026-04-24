@@ -62,9 +62,9 @@ def sync_data():
                         dt_str = str(dt)
 
                     all_data.append({
-                        'Dt.movto': dt_str,
-                        'Razão social': str(row[col_map['Razão social']]),
-                        'Vlr.cont': float(val)
+                        'date': dt_str,
+                        'supplier': str(row[col_map['Razão social']]).strip(),
+                        'value': float(val)
                     })
                 print(f"Processado: {file} ({len(df)} linhas)")
             else:

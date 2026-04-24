@@ -62,13 +62,29 @@ const server = http.createServer((req, res) => {
 
                 const processed = rawRows.filter(row => row[vKey] > 0).map(row => {
                     let dateVal = row[dKey];
-                    // Garantir formato YYYY-MM-DD para o JSON de saída
+                    let dateStr = dateVal;
+
+                    // Normalizar para objeto Date e depois para YYYY-MM-DD
                     if (dateVal instanceof Date) {
-                        dateVal = dateVal.toISOString().split('T')[0];
+                        dateStr = dateVal.toISOString().split('T')[0];
+                    } else if (typeof dateVal === 'string') {
+                        const parts = dateVal.split(/[\/\-]/);
+                        if (parts.length === 3) {
+                            if (parts[0].length === 4) {
+                                dateStr = dateVal; // Já é YYYY-MM-DD
+                            } else {
+                                // Converter DD/MM/YYYY para YYYY-MM-DD
+                                dateStr = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                            }
+                        }
+                    } else if (typeof dateVal === 'number') {
+                        // Excel serial date
+                        const d = new Date(Math.round((dateVal - 25569) * 86400 * 1000));
+                        dateStr = d.toISOString().split('T')[0];
                     }
                     
                     return {
-                        date: dateVal,
+                        date: dateStr,
                         supplier: (row[sKey] || 'NÃO IDENTIFICADO').toString().trim(),
                         value: parseFloat(row[vKey]) || 0
                     };
