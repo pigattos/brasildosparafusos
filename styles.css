@@ -122,6 +122,7 @@ header {
 }
 
 .sector-tag {
+    font-family: 'Outfit', sans-serif;
     font-size: 0.85rem;
     font-weight: 700;
     color: var(--warning);
@@ -271,12 +272,13 @@ header {
 }
 
 .main-welcome-logo .company-name {
-    font-size: 0.7rem;
-    font-weight: 400;
-    font-family: 'Inter', sans-serif;
-    color: rgba(245, 158, 11, 0.65);
+    font-size: 0.85rem;
+    font-weight: 700;
+    font-family: 'Outfit', sans-serif;
+    color: var(--warning);
     text-transform: uppercase;
-    letter-spacing: 3px;
+    letter-spacing: 2.5px;
+    opacity: 0.9;
 }
 
 .welcome-header h2 {
@@ -657,54 +659,47 @@ tr:hover {
 
 /* Buttons */
 .btn {
-    padding: 0.8rem 1.5rem;
+    padding: 0.6rem 1.2rem;
     border-radius: var(--radius-md);
     font-weight: 600;
+    font-size: 0.85rem;
+    font-family: 'Outfit', sans-serif;
+    letter-spacing: 0.3px;
     cursor: pointer;
     transition: all var(--transition-mid);
     display: inline-flex;
     align-items: center;
-    gap: 10px;
-    border: none;
+    gap: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
     text-decoration: none;
+    backdrop-filter: blur(4px);
 }
 
 .btn-primary {
-    background: var(--primary);
+    background: linear-gradient(135deg, var(--primary), #4f46e5);
     color: white;
-}
-
-.btn-accent {
-    background: rgba(16, 185, 129, 0.15);
-    color: #10b981;
-    border: 1px solid rgba(16, 185, 129, 0.4) !important;
-}
-
-.btn-accent:hover {
-    background: rgba(16, 185, 129, 0.25) !important;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.2);
 }
 
 .btn-secondary {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.03);
     color: var(--text-main);
     border: 1px solid var(--border-color);
 }
 
-.btn-primary:hover, .btn-secondary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
 .btn-primary:hover {
-    background: var(--primary-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.35);
+    filter: brightness(1.1);
 }
 
 .btn-secondary:hover {
-    background-color: rgba(255, 255, 255, 0.15);
-    border-color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
+
 
 .btn-export {
     background: rgba(255, 255, 255, 0.05);
@@ -1476,3 +1471,36 @@ footer {
 body.loading-active {
     overflow: hidden;
 }
+
+/* Feature Cards Hover Effects */
+.feature-card-premium {
+    cursor: pointer;
+    will-change: transform, border-color, box-shadow;
+    transition: all 0.3s ease !important;
+}
+
+.feature-card-premium:hover {
+    transform: translateY(-5px) !important;
+    border-color: rgba(59, 130, 246, 0.5) !important;
+    background: rgba(59, 130, 246, 0.08) !important;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2), 
+                0 0 15px rgba(59, 130, 246, 0.15) !important;
+}
+
+.feature-card-premium i {
+    transition: transform 0.3s ease;
+}
+
+.feature-card-premium:hover i {
+    transform: scale(1.2) rotate(5deg) !important;
+    color: #60a5fa !important;
+}
+
+.feature-card-premium h4 {
+    transition: color 0.3s ease;
+}
+
+.feature-card-premium:hover h4 {
+    color: #fff !important;
+}
+

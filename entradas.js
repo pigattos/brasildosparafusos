@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let volumeChart = null;
     let averageChart = null;
     let dailyChart = null;
+    let monthlyChart = null;
 
     // --- Event Listeners ---
     if (nfUpload) nfUpload.addEventListener('change', handleFileUpload);
@@ -251,6 +252,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateDashboard() {
         if (!nfData || nfData.length === 0) return;
         
+        const filteredBySearch = nfData.filter(item => 
+            item.supplier.toLowerCase().includes(nfSearch.value.toLowerCase())
+        );
         const filtered = filterByPeriodAndSearch();
         
         // 1. Stats
@@ -280,6 +284,8 @@ document.addEventListener('DOMContentLoaded', () => {
         renderVolumeChart(supplierTotals.slice(0, 10));
         renderAverageChart(supplierTotals.slice(0, 10));
         renderDailyChart(aggregateByDate(filtered));
+        renderMonthlyChart(aggregateByMonth(filteredBySearch));
+
 
         // 4. Table
         renderTable(filtered);
@@ -392,6 +398,27 @@ document.addEventListener('DOMContentLoaded', () => {
             }))
             .sort((a, b) => a.raw - b.raw);
     }
+    
+    function aggregateByMonth(data) {
+        const map = {};
+        data.forEach(item => {
+            const d = item.rawDate;
+            if (!d || isNaN(d.getTime())) return;
+            
+            const monthKey = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+            if (!map[monthKey]) {
+                map[monthKey] = { 
+                    total: 0, 
+                    label: d.toLocaleString('pt-br', { month: 'short', year: '2-digit' }),
+                    key: monthKey
+                };
+            }
+            map[monthKey].total += item.value;
+        });
+
+        // Ordenar por chave de mês
+        return Object.values(map).sort((a, b) => a.key.localeCompare(b.key));
+    }
 
     // --- UI Rendering ---
 
@@ -439,7 +466,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     borderColor: 'rgba(255, 255, 255, 0.2)',
                     borderWidth: 1,
                     borderRadius: 6,
-                    maxBarThickness: 40
+                    maxBarThickness: 40,
+                    hoverBackgroundColor: 'rgba(99, 102, 241, 1)',
                 }]
             },
             plugins: [ChartDataLabels],
@@ -449,6 +477,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 maintainAspectRatio: false,
                 animation: { duration: 1000 },
                 layout: { padding: { right: 50 } },
+                onClick: (e, elements) => {
+                    if (elements.length > 0) {
+                        const index = elements[0].index;
+                        const supplier = topData[index].supplier;
+                        nfSearch.value = supplier;
+                        updateDashboard();
+                    } else {
+                        // Limpar filtro se clicar fora das barras
+                        if (nfSearch.value !== "") {
+                            nfSearch.value = "";
+                            updateDashboard();
+                        }
+                    }
+                },
+                onHover: (event, chartElement) => {
+                    event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
+                },
                 plugins: {
                     legend: { display: false },
                     datalabels: {
@@ -515,7 +560,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     borderColor: 'rgba(255, 255, 255, 0.2)',
                     borderWidth: 1,
                     borderRadius: 6,
-                    maxBarThickness: 40
+                    maxBarThickness: 40,
+                    hoverBackgroundColor: 'rgba(16, 185, 129, 1)',
                 }]
             },
             plugins: [ChartDataLabels],
@@ -523,6 +569,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
+                onClick: (e, elements) => {
+                    if (elements.length > 0) {
+                        const index = elements[0].index;
+                        const supplier = volumeData[index].supplier;
+                        nfSearch.value = supplier;
+                        updateDashboard();
+                    } else {
+                        if (nfSearch.value !== "") {
+                            nfSearch.value = "";
+                            updateDashboard();
+                        }
+                    }
+                },
+                onHover: (event, chartElement) => {
+                    event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
+                },
                 plugins: {
                     legend: { display: false },
                     datalabels: {
@@ -574,7 +636,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     borderColor: 'rgba(255, 255, 255, 0.2)',
                     borderWidth: 1,
                     borderRadius: 6,
-                    maxBarThickness: 40
+                    maxBarThickness: 40,
+                    hoverBackgroundColor: 'rgba(245, 158, 11, 1)',
                 }]
             },
             plugins: [ChartDataLabels],
@@ -582,6 +645,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
+                onClick: (e, elements) => {
+                    if (elements.length > 0) {
+                        const index = elements[0].index;
+                        const supplier = avgData[index].supplier;
+                        nfSearch.value = supplier;
+                        updateDashboard();
+                    } else {
+                        if (nfSearch.value !== "") {
+                            nfSearch.value = "";
+                            updateDashboard();
+                        }
+                    }
+                },
+                onHover: (event, chartElement) => {
+                    event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
+                },
                 plugins: {
                     legend: { display: false },
                     datalabels: {
@@ -633,22 +712,50 @@ document.addEventListener('DOMContentLoaded', () => {
                     backgroundColor: gradient,
                     fill: true,
                     tension: 0.4,
-                    pointRadius: 4,
+                    pointRadius: 6,
+                    pointHoverRadius: 9,
                     pointBackgroundColor: '#10b981',
                     pointBorderColor: '#fff',
                     pointBorderWidth: 2
                 }]
             },
+            plugins: [ChartDataLabels],
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                onClick: (e, elements) => {
+                    if (elements.length > 0) {
+                        const index = elements[0].index;
+                        const date = dailyData[index].date;
+                        nfSearch.value = date; // Filtra pela data (formatada DD/MM/YYYY)
+                        updateDashboard();
+                    } else {
+                        if (nfSearch.value !== "") {
+                            nfSearch.value = "";
+                            updateDashboard();
+                        }
+                    }
+                },
+                onHover: (event, chartElement) => {
+                    event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
+                },
                 plugins: {
                     legend: { display: false },
+                    datalabels: {
+                        anchor: 'end',
+                        align: 'top',
+                        color: '#10b981',
+                        offset: 4,
+                        font: { weight: 'bold', size: 9, family: 'Outfit' },
+                        formatter: (value) => formatCurrency(value),
+                        display: 'auto' // Evita sobreposição
+                    },
                     tooltip: {
                         backgroundColor: 'rgba(15, 23, 42, 0.9)',
                         padding: 12,
                         cornerRadius: 8,
                         callbacks: {
+                            title: (items) => `Data: ${items[0].label}`,
                             label: (context) => ` Total: ${formatCurrency(context.raw)}`
                         }
                     }
@@ -693,6 +800,96 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showLoading(show) {
         loadingOverlay.style.display = show ? 'flex' : 'none';
+    }
+
+    function renderMonthlyChart(monthlyData) {
+        const ctx = document.getElementById('monthly-chart').getContext('2d');
+        if (monthlyChart) monthlyChart.destroy();
+
+        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+        gradient.addColorStop(0, 'rgba(99, 102, 241, 0.4)');
+        gradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
+
+        monthlyChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: monthlyData.map(d => d.label),
+                datasets: [{
+                    label: 'Total Recebido Mensal (R$)',
+                    data: monthlyData.map(d => d.total),
+                    backgroundColor: monthlyData.map(d => 
+                        d.key === selectedMonth ? 'rgba(16, 185, 129, 0.8)' : 'rgba(99, 102, 241, 0.6)'
+                    ),
+                    borderColor: monthlyData.map(d => 
+                        d.key === selectedMonth ? '#10b981' : '#6366f1'
+                    ),
+                    borderWidth: 2,
+                    borderRadius: 8,
+                    hoverBackgroundColor: 'rgba(99, 102, 241, 0.9)',
+                }]
+            },
+            plugins: [ChartDataLabels],
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                onClick: (e, elements) => {
+                    if (elements.length > 0) {
+                        const index = elements[0].index;
+                        const monthKey = monthlyData[index].key;
+                        
+                        if (selectedMonth === monthKey) {
+                            selectedMonth = 'all'; // Toggle off if clicking same month
+                        } else {
+                            selectedMonth = monthKey;
+                        }
+                        updateDashboard();
+                    } else {
+                        selectedMonth = 'all';
+                        updateDashboard();
+                    }
+                },
+                onHover: (event, chartElement) => {
+                    event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
+                },
+                plugins: {
+                    legend: { display: false },
+                    datalabels: {
+                        anchor: 'end',
+                        align: 'top',
+                        color: '#f8fafc',
+                        offset: 4,
+                        font: { weight: 'bold', size: 10, family: 'Outfit' },
+                        formatter: (value) => formatCurrency(value),
+                        display: (context) => context.dataset.data[context.dataIndex] > 0
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        padding: 12,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: (context) => ` Total: ${formatCurrency(context.raw)}`
+                        }
+                    }
+                },
+                scales: {
+                    x: { 
+                        grid: { display: false },
+                        ticks: { 
+                            color: '#e2e8f0',
+                            font: { family: 'Outfit', size: 12 }
+                        }
+                    },
+                    y: { 
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        beginAtZero: true,
+                        ticks: { 
+                            color: '#94a3b8',
+                            callback: (value) => formatCurrency(value)
+                        }
+                    }
+                }
+            }
+        });
     }
 
     function exportToExcel() {
