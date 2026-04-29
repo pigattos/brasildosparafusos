@@ -51,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeFilters = ['all'];
     let activeBuyer = 'all';
     let sortRecorrenciaDir = 'none';
+    let sortVendasDir = 'none';
     let myChart = null;
     let supplierChart = null;
     let groupChart = null;
@@ -653,13 +654,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const ctx = document.getElementById('purchase-pie-chart').getContext('2d');
         
         const chartData = {
-            labels: ['🚨 Ruptura', '⚡ Atenção', '⚠️ Sugestão', '✅ Seguro'],
+            labels: ['Ruptura', 'Atenção', 'Sugestão', 'Seguro'],
             datasets: [{
                 data: [buyCount, attentionCount, suggestCount, okCount],
-                backgroundColor: ['#ef4444', '#f97316', '#eab308', '#10b981'],
-                borderColor: ['rgba(239, 68, 68, 0.2)', 'rgba(249, 115, 22, 0.2)', 'rgba(234, 179, 8, 0.2)', 'rgba(16, 185, 129, 0.2)'],
-                borderWidth: 1,
-                hoverOffset: 15
+                backgroundColor: [
+                    '#fb7185', // Rose
+                    '#f59e0b', // Amber
+                    '#818cf8', // Indigo
+                    '#34d399'  // Emerald
+                ],
+                borderColor: '#0f172a',
+                borderWidth: 3,
+                hoverOffset: 20,
+                borderRadius: 4
             }]
         };
 
@@ -668,47 +675,74 @@ document.addEventListener('DOMContentLoaded', () => {
             myChart.update();
         } else {
             myChart = new Chart(ctx, {
-                type: 'pie',
+                type: 'doughnut',
                 data: chartData,
+                plugins: [
+                    ChartDataLabels,
+                    {
+                        id: 'centerText',
+                        beforeDraw: function(chart) {
+                            const { width, height, ctx } = chart;
+                            ctx.restore();
+                            
+                            // "TOTAL" label
+                            ctx.font = `600 0.8rem Outfit, sans-serif`;
+                            ctx.textBaseline = "middle";
+                            ctx.fillStyle = "#9ca3af";
+                            ctx.letterSpacing = "2px";
+                            
+                            const label = "TOTAL",
+                                labelX = Math.round((width - ctx.measureText(label).width) / 2),
+                                labelY = height / 2 - 22;
+                            ctx.fillText(label, labelX, labelY);
+
+                            // Value number
+                            ctx.font = `700 2.2rem Outfit, sans-serif`;
+                            ctx.fillStyle = "#ffffff";
+                            ctx.letterSpacing = "0px";
+                            const val = data.length.toString(),
+                                valX = Math.round((width - ctx.measureText(val).width) / 2),
+                                valY = height / 2 + 10;
+                            ctx.fillText(val, valX, valY);
+                            ctx.save();
+                        }
+                    }
+                ],
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    onClick: (e, elements) => {
-                        if (elements.length > 0) {
-                            const index = elements[0].index;
-                            let filter = 'all';
-                            if (index === 0) filter = 'buy';
-                            else if (index === 1) filter = 'attention';
-                            else if (index === 2) filter = 'suggest';
-                            
-                            toggleFilter(filter);
-                        }
-                    },
-                    onHover: (event, chartElement) => {
-                        event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
-                    },
+                    cutout: '78%',
+                    spacing: 2,
+                    layout: { padding: 10 },
                     plugins: {
                         legend: {
                             position: 'bottom',
                             labels: {
-                                color: '#f3f4f6',
-                                font: { family: 'Outfit', size: 14 }
+                                color: '#9ca3af',
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                padding: 15,
+                                font: { family: 'Outfit', size: 11, weight: '500' }
                             }
                         },
                         title: {
                             display: true,
-                            text: 'Indicador de Risco (Filtrado)',
-                            color: '#f3f4f6',
-                            font: { family: 'Outfit', size: 18, weight: '600' }
+                            text: 'Status de Abastecimento',
+                            color: '#ffffff',
+                            padding: { bottom: 15 },
+                            font: { family: 'Outfit', size: 16, weight: '700' }
                         },
                         datalabels: {
                             color: '#fff',
-                            font: { weight: 'bold', size: 14 },
+                            backgroundColor: 'rgba(15, 23, 42, 0.7)',
+                            borderRadius: 4,
+                            padding: { left: 6, right: 6, top: 4, bottom: 4 },
+                            font: { weight: '700', size: 10 },
                             formatter: (value, ctx) => {
                                 let sum = ctx.chart.data.datasets[0].data.reduce((acc, val) => acc + val, 0);
                                 if (sum === 0) return '';
-                                let percentage = (value * 100 / sum).toFixed(1) + "%";
-                                return (value > 0) ? percentage : '';
+                                let percentage = (value * 100 / sum).toFixed(0) + "%";
+                                return (value > 2) ? percentage : ''; // hide if too small
                             }
                         }
                     }
@@ -902,8 +936,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return matchProd && matchSupp && matchBuyer && matchStatus;
         });
 
-        // 4. Sorting by Recurrence
-        if (sortRecorrenciaDir === 'desc') {
+        // 4. Sorting
+        if (sortVendasDir === 'desc') {
+            filteredData.sort((a, b) => parseFloat(b.vendas) - parseFloat(a.vendas));
+        } else if (sortVendasDir === 'asc') {
+            filteredData.sort((a, b) => parseFloat(a.vendas) - parseFloat(b.vendas));
+        } else if (sortRecorrenciaDir === 'desc') {
             filteredData.sort((a, b) => parseFloat(b.recorrencia) - parseFloat(a.recorrencia));
         } else if (sortRecorrenciaDir === 'asc') {
             filteredData.sort((a, b) => parseFloat(a.recorrencia) - parseFloat(b.recorrencia));
@@ -969,16 +1007,37 @@ document.addEventListener('DOMContentLoaded', () => {
         handleBuyerFile(e.target.files[0]);
     });
 
-    // Sort Recorrência
+    // Sorting functionality
     const sortRecHeader = document.getElementById('sort-recorrencia');
+    const sortVendasHeader = document.getElementById('sort-vendas');
+
     if (sortRecHeader) {
         sortRecHeader.addEventListener('click', () => {
+            sortVendasDir = 'none';
+            if (sortVendasHeader) sortVendasHeader.querySelector('.sort-icon').textContent = '↕️';
+
             if (sortRecorrenciaDir === 'none' || sortRecorrenciaDir === 'asc') {
                 sortRecorrenciaDir = 'desc';
                 sortRecHeader.querySelector('.sort-icon').textContent = '🔽';
             } else {
                 sortRecorrenciaDir = 'asc';
                 sortRecHeader.querySelector('.sort-icon').textContent = '🔼';
+            }
+            applyAllFilters();
+        });
+    }
+
+    if (sortVendasHeader) {
+        sortVendasHeader.addEventListener('click', () => {
+            sortRecorrenciaDir = 'none';
+            if (sortRecHeader) sortRecHeader.querySelector('.sort-icon').textContent = '↕️';
+
+            if (sortVendasDir === 'none' || sortVendasDir === 'asc') {
+                sortVendasDir = 'desc';
+                sortVendasHeader.querySelector('.sort-icon').textContent = '🔽';
+            } else {
+                sortVendasDir = 'asc';
+                sortVendasHeader.querySelector('.sort-icon').textContent = '🔼';
             }
             applyAllFilters();
         });

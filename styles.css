@@ -1500,7 +1500,41 @@ body.loading-active {
     transition: color 0.3s ease;
 }
 
+
 .feature-card-premium:hover h4 {
     color: #fff !important;
+}
+
+/* Bridge Status Styles */
+.btn-primary.bridge-active {
+    position: relative;
+    border-color: #10b981 !important;
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
+}
+
+.btn-primary.bridge-active::after {
+    content: '';
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 8px;
+    height: 8px;
+    background-color: #10b981;
+    border-radius: 50%;
+    box-shadow: 0 0 10px #10b981;
+    animation: pulse-bridge 2s infinite;
+}
+
+@keyframes pulse-bridge {
+    0% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.5); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+.btn-success {
+    background-color: #10b981 !important;
+    border-color: #059669 !important;
+    transform: scale(1.05);
+    transition: all 0.3s ease;
 }
 

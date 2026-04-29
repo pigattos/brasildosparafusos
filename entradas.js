@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let averageChart = null;
     let dailyChart = null;
     let monthlyChart = null;
+    let showAllSuppliers = false; // State for Top 10 vs All toggle
 
     // --- Event Listeners ---
     if (nfUpload) nfUpload.addEventListener('change', handleFileUpload);
@@ -25,8 +26,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const exportBtn = document.getElementById('export-entradas-btn');
     if (exportBtn) exportBtn.addEventListener('click', exportToExcel);
 
-    const syncFolderBtn = document.getElementById('sync-folder-btn');
-    if (syncFolderBtn) syncFolderBtn.addEventListener('click', handleFolderSync);
+    const folderUpload = document.getElementById('folder-upload');
+    if (folderUpload) folderUpload.addEventListener('change', handleFolderUpload);
+
+    const toggleSuppliersBtn = document.getElementById('toggle-suppliers-view');
+    if (toggleSuppliersBtn) {
+        toggleSuppliersBtn.addEventListener('click', () => {
+            showAllSuppliers = !showAllSuppliers;
+            toggleSuppliersBtn.textContent = showAllSuppliers ? 'Ver Top 10' : 'Ver Todos';
+            toggleSuppliersBtn.classList.toggle('active', showAllSuppliers);
+            updateDashboard();
+        });
+    }
 
     // --- Auto Load Logic ---
     if (typeof PRE_LOADED_ENTRADAS !== 'undefined' && PRE_LOADED_ENTRADAS.length > 0) {
@@ -43,72 +54,47 @@ document.addEventListener('DOMContentLoaded', () => {
         if (dashboardView) dashboardView.style.display = 'block';
         setTimeout(() => updateDashboard(), 100);
     }
+
     // ----------------------
 
     // --- Logic Functions ---
 
-    async function handleFolderSync() {
+    async function handleFolderUpload(e) {
+        const files = Array.from(e.target.files);
+        if (!files || files.length === 0) return;
+
         showLoading(true);
-        
-        try {
-            // Tenta se comunicar com a ponte local (bridge.js)
-            console.log("Tentando conexão com a ponte local...");
-            const response = await fetch('http://localhost:3000/sync', { 
-                mode: 'cors',
-                cache: 'no-cache'
-            });
-            
-            if (!response.ok) throw new Error('Servidor ponte retornou erro.');
-            
-            const result = await response.json();
-            console.log("Resposta da ponte:", result);
-            
-            if (result.success) {
-                // Recarregar a página para pegar o novo data-entradas.js
-                alert(`Sincronização concluída! ${result.count} registros processados.`);
-                location.reload();
-                return;
-            }
-        } catch (e) {
-            console.warn("Ponte local não detectada ou erro:", e.message);
-        }
-
-        // Fallback para o Directory Picker (Segurança do Navegador)
-        if (!window.showDirectoryPicker) {
-            alert('Ponte local não detectada. Por favor, execute "node bridge.js" ou use um navegador moderno (Chrome/Edge).');
-            showLoading(false);
-            return;
-        }
 
         try {
-            const dirHandle = await window.showDirectoryPicker();
-            let allMergedData = [];
-            
-            for await (const entry of dirHandle.values()) {
-                if (entry.kind === 'file' && (entry.name.endsWith('.xlsx') || entry.name.endsWith('.xls'))) {
-                    console.log(`Lendo arquivo: ${entry.name}`);
-                    const file = await entry.getFile();
-                    const rawData = await readExcel(file);
-                    const processed = processIndividualFile(rawData);
-                    allMergedData = allMergedData.concat(processed);
+            let allData = [];
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                // Filtra apenas arquivos excel/csv e ignora arquivos temporários
+                if (file.name.match(/\.(xlsx|xls|csv)$/i) && !file.name.startsWith('~$')) {
+                    try {
+                        const data = await readExcel(file);
+                        const processed = processIndividualFile(data);
+                        allData = allData.concat(processed);
+                    } catch (err) {
+                        console.warn(`Erro ao ler o arquivo ${file.name}:`, err);
+                    }
                 }
             }
-            
-            if (allMergedData.length > 0) {
-                nfData = allMergedData;
+
+            if (allData.length > 0) {
+                nfData = allData;
                 welcomeView.style.display = 'none';
                 dashboardView.style.display = 'block';
                 updateDashboard();
-                alert(`Sucesso! ${allMergedData.length} registros carregados da pasta selecionada.`);
             } else {
-                alert('Nenhum arquivo Excel válido encontrado.');
+                alert('Nenhum dado válido encontrado nos arquivos da pasta.');
             }
-            
         } catch (error) {
-            console.error('Erro na sincronização manual:', error);
-            if (error.name !== 'AbortError') alert('Erro ao acessar a pasta.');
+            console.error('Erro ao processar pasta:', error);
+            alert('Erro ao processar a pasta.');
         } finally {
             showLoading(false);
+            e.target.value = ''; // Reset input to allow re-upload
         }
     }
 
@@ -120,6 +106,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const colSupplier = findColumn(firstRow, ['Razão social', 'Fornecedor', 'Nome']);
         const colValue = findColumn(firstRow, ['Vlr.cont', 'Valor', 'Total']);
 
+        if (!colDate || !colSupplier || !colValue) return [];
+
         return data.map(row => {
             const rawDateValue = row[colDate];
             const supplier = row[colSupplier] || 'NÃO IDENTIFICADO';
@@ -129,7 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return {
                 date: formatDate(dateObj),
                 rawDate: dateObj,
-                supplier: supplier.toString().trim(),
+                supplier: supplier.toString().trim().replace(/\s+/g, ' '),
                 value: value
             };
         }).filter(item => item.value > 0 && !isNaN(item.rawDate.getTime()));
@@ -182,6 +170,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const colSupplier = findColumn(firstRow, ['Razão social', 'Fornecedor', 'Nome']);
         const colValue = findColumn(firstRow, ['Vlr.cont', 'Valor', 'Total']);
 
+        if (!colDate || !colSupplier || !colValue) {
+            alert("A planilha não possui as colunas necessárias (Dt.movto, Razão social, Vlr.cont).");
+            return;
+        }
+
         // Mapear e limpar dados
         nfData = data.map(row => {
             const rawDateValue = row[colDate];
@@ -193,7 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return {
                 date: formatDate(dateObj),
                 rawDate: dateObj,
-                supplier: supplier.toString().trim(),
+                supplier: supplier.toString().trim().replace(/\s+/g, ' '),
                 value: value
             };
         }).filter(item => item.value > 0 && !isNaN(item.rawDate.getTime()));
@@ -206,7 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (match) return match;
         }
         // Fallback: primeira coluna que contém parte do nome
-        return keys.find(k => possibilities.some(p => k.toLowerCase().includes(p.toLowerCase()))) || keys[0];
+        return keys.find(k => possibilities.some(p => k.toLowerCase().includes(p.toLowerCase()))) || null;
     }
 
     function parseNFDate(val) {
@@ -279,10 +272,27 @@ document.addEventListener('DOMContentLoaded', () => {
             topSupplierValueEl.textContent = "R$ 0,00";
         }
 
-        // 3. Charts
-        renderSuppliersChart(supplierTotals.slice(0, 10));
-        renderVolumeChart(supplierTotals.slice(0, 10));
-        renderAverageChart(supplierTotals.slice(0, 10));
+        // 3. Previous period for comparison arrows
+        let prevSupplierTotals = [];
+        if (selectedMonth !== 'all') {
+            const [yr, mo] = selectedMonth.split('-').map(Number);
+            const prevMo = mo === 1 ? 12 : mo - 1;
+            const prevYr = mo === 1 ? yr - 1 : yr;
+            const prevKey = `${prevYr}-${String(prevMo).padStart(2, '0')}`;
+            const prevFiltered = nfData.filter(item => {
+                const d = item.rawDate;
+                const k = `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}`;
+                return k === prevKey;
+            });
+            prevSupplierTotals = aggregateBySupplier(prevFiltered);
+        }
+
+        // 4. Charts
+        const displayData = showAllSuppliers ? supplierTotals : supplierTotals.slice(0, 10);
+        
+        renderSuppliersChart(displayData, prevSupplierTotals);
+        renderVolumeChart(displayData, prevSupplierTotals);
+        renderAverageChart(displayData, prevSupplierTotals);
         renderDailyChart(aggregateByDate(filtered));
         renderMonthlyChart(aggregateByMonth(filteredBySearch));
 
@@ -358,22 +368,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function aggregateBySupplier(data) {
-        const stats = {};
+        const stats = {}; // key = normalized supplier name
+        const display = {}; // key = normalized → display name (trimmed)
+
         data.forEach(item => {
-            if (!stats[item.supplier]) {
-                stats[item.supplier] = { total: 0, count: 0 };
+            // Normalize to avoid casing/whitespace duplicates across months
+            const key = item.supplier.toLowerCase().trim();
+            const name = item.supplier.trim();
+
+            if (!stats[key]) {
+                stats[key] = { total: 0, count: 0 };
+                display[key] = name; // keep first-seen trimmed name
             }
-            stats[item.supplier].total += item.value;
-            stats[item.supplier].count += 1;
+            stats[key].total += item.value;
+            stats[key].count += 1;
         });
 
-        return Object.keys(stats).map(supplier => {
-            const total = stats[supplier].total;
-            const count = stats[supplier].count;
+        return Object.keys(stats).map(key => {
+            const total = stats[key].total;
+            const count = stats[key].count;
             return {
-                supplier,
-                total: total,
-                count: count,
+                supplier: display[key], // trimmed canonical name
+                total,
+                count,
                 average: total / count
             };
         }).sort((a, b) => b.total - a.total);
@@ -445,8 +462,11 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     }
 
-    function renderSuppliersChart(topData) {
+    function renderSuppliersChart(topData, prevData = []) {
         const ctx = document.getElementById('suppliers-chart').getContext('2d');
+        const prevLookup = prevData.length
+            ? Object.fromEntries(prevData.map(d => [d.supplier.toLowerCase().trim(), d.total]))
+            : null;
         
         if (suppliersChart) suppliersChart.destroy();
 
@@ -470,13 +490,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     hoverBackgroundColor: 'rgba(99, 102, 241, 1)',
                 }]
             },
-            plugins: [ChartDataLabels],
+            plugins: [
+                ChartDataLabels,
+                makeHorizPercentPlugin(topData, 'total', prevLookup,
+                    '#818cf8', 'rgba(99,102,241,0.12)',
+                    'rgba(99,102,241,0.5)', 'rgba(99,102,241,0.35)'
+                )
+            ],
             options: {
                 indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
                 animation: { duration: 1000 },
-                layout: { padding: { right: 50 } },
+                layout: { padding: { right: 50, top: 28 } },
                 onClick: (e, elements) => {
                     if (elements.length > 0) {
                         const index = elements[0].index;
@@ -538,8 +564,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-    function renderVolumeChart(topData) {
+    function renderVolumeChart(topData, prevData = []) {
         const ctx = document.getElementById('volume-chart').getContext('2d');
+        const prevLookup = prevData.length
+            ? Object.fromEntries(prevData.map(d => [d.supplier.toLowerCase().trim(), d.count]))
+            : null;
         if (volumeChart) volumeChart.destroy();
 
         // Ordenar por volume para este gráfico
@@ -564,11 +593,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     hoverBackgroundColor: 'rgba(16, 185, 129, 1)',
                 }]
             },
-            plugins: [ChartDataLabels],
+            plugins: [
+                ChartDataLabels,
+                makeHorizPercentPlugin(volumeData, 'count', prevLookup,
+                    '#10b981', 'rgba(16,185,129,0.12)',
+                    'rgba(16,185,129,0.5)', 'rgba(16,185,129,0.35)'
+                )
+            ],
             options: {
                 indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: { padding: { right: 50, top: 28 } },
                 onClick: (e, elements) => {
                     if (elements.length > 0) {
                         const index = elements[0].index;
@@ -615,8 +651,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function renderAverageChart(topData) {
+    function renderAverageChart(topData, prevData = []) {
         const ctx = document.getElementById('average-chart').getContext('2d');
+        const prevLookup = prevData.length
+            ? Object.fromEntries(prevData.map(d => [d.supplier.toLowerCase().trim(), d.average]))
+            : null;
         if (averageChart) averageChart.destroy();
 
         const avgData = [...topData].sort((a, b) => b.average - a.average);
@@ -640,11 +679,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     hoverBackgroundColor: 'rgba(245, 158, 11, 1)',
                 }]
             },
-            plugins: [ChartDataLabels],
+            plugins: [
+                ChartDataLabels,
+                makeHorizPercentPlugin(avgData, 'average', prevLookup,
+                    '#f59e0b', 'rgba(245,158,11,0.12)',
+                    'rgba(245,158,11,0.5)', 'rgba(245,158,11,0.35)'
+                )
+            ],
             options: {
                 indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: { padding: { right: 50, top: 28 } },
                 onClick: (e, elements) => {
                     if (elements.length > 0) {
                         const index = elements[0].index;
@@ -802,13 +848,130 @@ document.addEventListener('DOMContentLoaded', () => {
         loadingOverlay.style.display = show ? 'flex' : 'none';
     }
 
+    /**
+     * Plugin de badges premium para gráficos horizontais.
+     * Mostra ↑/↓ + % do total. A seta compara o valor do fornecedor
+     * no período atual vs. o período anterior (prevLookup).
+     *
+     * @param {Array}       items        - dados do gráfico
+     * @param {string}      valueKey     - chave de valor ('total'|'count'|'average')
+     * @param {Object|null} prevLookup   - { [supplier]: prevValue } ou null
+     * @param {string}      neutralColor - cor base quando sem comparação
+     * @param {string}      neutralFill  - fill rgba neutro
+     * @param {string}      neutralStroke- borda rgba neutra
+     * @param {string}      neutralGlow  - glow rgba neutro
+     */
+    function makeHorizPercentPlugin(items, valueKey, prevLookup,
+        neutralColor, neutralFill, neutralStroke, neutralGlow) {
+
+        const PILL_BG = '#0d1526'; // solid dark: same tone as chart bg
+        const total = items.reduce((s, d) => s + (d[valueKey] || 0), 0);
+
+        return {
+            id: 'horizPercentBadge',
+            afterDatasetsDraw(chart) {
+                const { ctx: c } = chart;
+                const meta = chart.getDatasetMeta(0);
+
+                items.forEach((d, i) => {
+                    const barEl = meta.data[i];
+                    if (!barEl) return;
+
+                    const pct = total > 0 ? (d[valueKey] / total) * 100 : 0;
+                    if (pct < 0.1) return;
+
+                    // Direction vs previous period
+                    let arrow = '';
+                    let txtColor  = neutralColor;
+                    let bdColor   = neutralStroke;
+                    let glowColor = neutralGlow;
+
+                    if (prevLookup !== null) {
+                        const prevVal = prevLookup[d.supplier.toLowerCase().trim()];
+                        if (prevVal !== undefined) {
+                            const curr = d[valueKey];
+                            if (curr > prevVal) {
+                                arrow    = '↑';
+                                txtColor  = '#34d399';
+                                bdColor   = 'rgba(52,211,153,0.45)';
+                                glowColor = 'rgba(52,211,153,0.25)';
+                            } else if (curr < prevVal) {
+                                arrow    = '↓';
+                                txtColor  = '#fb7185';
+                                bdColor   = 'rgba(251,113,133,0.45)';
+                                glowColor = 'rgba(251,113,133,0.25)';
+                            }
+                            // equal or new → no arrow, keep neutral
+                        }
+                        // supplier not in prev period → no arrow, neutral badge
+                    }
+
+                    const text = arrow ? `${arrow} ${pct.toFixed(1)}%` : null;
+                    // Only render badge when there's directional data (↑ or ↓)
+                    if (!text) return;
+
+                    const barRight   = barEl.x;
+                    const barCenterY = barEl.y;
+                    const barHalfH   = (barEl.height || 28) / 2;
+
+                    c.save();
+                    c.font = '600 10px Outfit, system-ui, sans-serif';
+
+                    const tw    = c.measureText(text).width;
+                    const padX  = 9;
+                    const pillW = tw + padX * 2;
+                    const pillH = 18;
+                    const pillR = pillH / 2;
+                    const pillX = barRight - pillW;
+                    const pillY = barCenterY - barHalfH - pillH - 3;
+
+                    // Subtle glow
+                    c.shadowColor   = glowColor;
+                    c.shadowBlur    = 8;
+                    c.shadowOffsetX = 0;
+                    c.shadowOffsetY = 0;
+
+                    // Solid dark fill — crisp against bars
+                    c.beginPath();
+                    c.roundRect(pillX, pillY, pillW, pillH, pillR);
+                    c.fillStyle = PILL_BG;
+                    c.fill();
+
+                    // Thin colored border
+                    c.shadowBlur  = 0;
+                    c.strokeStyle = bdColor;
+                    c.lineWidth   = 1;
+                    c.stroke();
+
+                    // Text
+                    c.fillStyle    = txtColor;
+                    c.textAlign    = 'center';
+                    c.textBaseline = 'middle';
+                    c.fillText(text, pillX + pillW / 2, pillY + pillH / 2);
+
+                    c.restore();
+                });
+            }
+        };
+    }
+
+    function calcMonthlyVariation(monthlyData) {
+        return monthlyData.map((d, i) => {
+            if (i === 0) return null;
+            const prev = monthlyData[i - 1].total;
+            if (!prev || prev === 0) return null;
+            return ((d.total - prev) / prev) * 100;
+        });
+    }
+
     function renderMonthlyChart(monthlyData) {
         const ctx = document.getElementById('monthly-chart').getContext('2d');
         if (monthlyChart) monthlyChart.destroy();
 
-        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-        gradient.addColorStop(0, 'rgba(99, 102, 241, 0.4)');
-        gradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
+        const variations = calcMonthlyVariation(monthlyData);
+
+        // Generous top padding: badge (24px) + connector (~26px) + value label (~18px) + gap
+        const layout = { padding: { top: 72, right: 8, left: 8 } };
 
         monthlyChart = new Chart(ctx, {
             type: 'bar',
@@ -817,10 +980,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 datasets: [{
                     label: 'Total Recebido Mensal (R$)',
                     data: monthlyData.map(d => d.total),
-                    backgroundColor: monthlyData.map(d => 
+                    backgroundColor: monthlyData.map(d =>
                         d.key === selectedMonth ? 'rgba(16, 185, 129, 0.8)' : 'rgba(99, 102, 241, 0.6)'
                     ),
-                    borderColor: monthlyData.map(d => 
+                    borderColor: monthlyData.map(d =>
                         d.key === selectedMonth ? '#10b981' : '#6366f1'
                     ),
                     borderWidth: 2,
@@ -828,20 +991,102 @@ document.addEventListener('DOMContentLoaded', () => {
                     hoverBackgroundColor: 'rgba(99, 102, 241, 0.9)',
                 }]
             },
-            plugins: [ChartDataLabels],
+            plugins: [
+                ChartDataLabels,
+                // Custom plugin: draws variation badge above datalabels
+                {
+                    id: 'monthlyVariationBadge',
+                    afterDatasetsDraw(chart) {
+                        const { ctx: c, scales: { y } } = chart;
+                        const meta = chart.getDatasetMeta(0);
+
+                        monthlyData.forEach((d, i) => {
+                            const v = variations[i];
+                            if (v === null || v === undefined) return;
+
+                            const bar    = meta.data[i];
+                            const barX   = bar.x;
+                            const barTop = y.getPixelForValue(d.total);
+
+                            const isUp       = v >= 0;
+                            const arrow      = isUp ? '↑' : '↓';
+                            const color      = isUp ? '#34d399' : '#fb7185'; // softer emerald/rose
+                            const glowColor  = isUp ? 'rgba(52,211,153,0.22)' : 'rgba(251,113,133,0.22)';
+                            const bdColor    = isUp ? 'rgba(52,211,153,0.45)' : 'rgba(251,113,133,0.45)';
+                            const text       = `${arrow} ${Math.abs(v).toFixed(1)}%`;
+
+                            c.save();
+
+                            // Measure for pill
+                            c.font = '600 11px Outfit, system-ui, sans-serif';
+                            const tw    = c.measureText(text).width;
+                            const padX  = 11;
+                            const pillW = tw + padX * 2;
+                            const pillH = 20;
+                            const pillR = pillH / 2;
+                            const pillX = barX - pillW / 2;
+                            // Place pill 52px above bar top (gives room for value label below)
+                            const pillY = barTop - 52;
+
+                            // Subtle glow
+                            c.shadowColor   = glowColor;
+                            c.shadowBlur    = 8;
+                            c.shadowOffsetX = 0;
+                            c.shadowOffsetY = 0;
+
+                            // Solid dark pill fill — crisp against bars
+                            c.beginPath();
+                            c.roundRect(pillX, pillY, pillW, pillH, pillR);
+                            c.fillStyle = '#0d1526';
+                            c.fill();
+
+                            // Thin colored border
+                            c.shadowBlur  = 0;
+                            c.strokeStyle = bdColor;
+                            c.lineWidth   = 1;
+                            c.stroke();
+
+                            // Pill text
+                            c.fillStyle    = color;
+                            c.font         = '600 11px Outfit, system-ui, sans-serif';
+                            c.textAlign    = 'center';
+                            c.textBaseline = 'middle';
+                            c.fillText(text, barX, pillY + pillH / 2);
+
+                            // Dashed connector from pill bottom → bar top
+                            c.beginPath();
+                            c.setLineDash([2, 3]);
+                            c.strokeStyle  = color;
+                            c.lineWidth    = 1;
+                            c.globalAlpha  = 0.38;
+                            c.moveTo(barX, pillY + pillH + 2);
+                            c.lineTo(barX, barTop - 4);
+                            c.stroke();
+                            c.setLineDash([]);
+                            c.globalAlpha  = 1;
+
+                            // Glowing dot at bar top
+                            c.shadowColor = glowColor;
+                            c.shadowBlur  = 8;
+                            c.beginPath();
+                            c.arc(barX, barTop, 3.5, 0, Math.PI * 2);
+                            c.fillStyle = color;
+                            c.fill();
+
+                            c.restore();
+                        });
+                    }
+                }
+            ],
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                layout,
                 onClick: (e, elements) => {
                     if (elements.length > 0) {
                         const index = elements[0].index;
                         const monthKey = monthlyData[index].key;
-                        
-                        if (selectedMonth === monthKey) {
-                            selectedMonth = 'all'; // Toggle off if clicking same month
-                        } else {
-                            selectedMonth = monthKey;
-                        }
+                        selectedMonth = selectedMonth === monthKey ? 'all' : monthKey;
                         updateDashboard();
                     } else {
                         selectedMonth = 'all';
@@ -854,35 +1099,47 @@ document.addEventListener('DOMContentLoaded', () => {
                 plugins: {
                     legend: { display: false },
                     datalabels: {
+                        // Value sits inside the bar (near top), leaving space above for the badge
                         anchor: 'end',
-                        align: 'top',
-                        color: '#f8fafc',
-                        offset: 4,
-                        font: { weight: 'bold', size: 10, family: 'Outfit' },
+                        align: 'bottom',
+                        color: 'rgba(255,255,255,0.93)',
+                        offset: 6,
+                        font: { weight: '700', size: 11, family: 'Outfit' },
                         formatter: (value) => formatCurrency(value),
-                        display: (context) => context.dataset.data[context.dataIndex] > 0
+                        display: (context) => context.dataset.data[context.dataIndex] > 0,
+                        textShadowBlur: 6,
+                        textShadowColor: 'rgba(0,0,0,0.6)'
                     },
                     tooltip: {
-                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                        padding: 12,
-                        cornerRadius: 8,
+                        backgroundColor: 'rgba(10, 16, 35, 0.96)',
+                        borderColor: 'rgba(99,102,241,0.3)',
+                        borderWidth: 1,
+                        padding: 14,
+                        cornerRadius: 10,
                         callbacks: {
-                            label: (context) => ` Total: ${formatCurrency(context.raw)}`
+                            label: (context) => {
+                                const v = variations[context.dataIndex];
+                                const total = ` Total: ${formatCurrency(context.raw)}`;
+                                if (v === null || v === undefined) return total;
+                                const arrow = v >= 0 ? '↑' : '↓';
+                                const varStr = ` ${arrow} ${Math.abs(v).toFixed(1)}% vs. mês anterior`;
+                                return [total, varStr];
+                            }
                         }
                     }
                 },
                 scales: {
-                    x: { 
+                    x: {
                         grid: { display: false },
-                        ticks: { 
+                        ticks: {
                             color: '#e2e8f0',
                             font: { family: 'Outfit', size: 12 }
                         }
                     },
-                    y: { 
+                    y: {
                         grid: { color: 'rgba(255,255,255,0.05)' },
                         beginAtZero: true,
-                        ticks: { 
+                        ticks: {
                             color: '#94a3b8',
                             callback: (value) => formatCurrency(value)
                         }

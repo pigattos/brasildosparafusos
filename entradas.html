@@ -43,9 +43,10 @@
                 </div>
             </div>
             <div class="header-actions">
-                <button class="btn btn-primary" id="sync-folder-btn">
-                    <span class="btn-icon">🔄</span> Sincronizar Pasta (OneDrive)
-                </button>
+                <label for="folder-upload" class="btn btn-primary" id="sync-folder-btn">
+                    <span class="btn-icon">📁</span> Selecionar Pasta
+                </label>
+                <input type="file" id="folder-upload" accept=".xlsx, .xls, .csv" webkitdirectory directory multiple hidden>
                 <a href="index.html" class="btn btn-secondary">
                     <span class="btn-icon">📦</span> Gestor de Estoque
                 </a>

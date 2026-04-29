@@ -27,6 +27,13 @@ function findColumn(row, possibilities) {
 const server = http.createServer((req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+        res.writeHead(204);
+        res.end();
+        return;
+    }
     
     if (req.url === '/sync') {
         console.log("Recebido pedido de sincronização...");
@@ -97,7 +104,11 @@ const server = http.createServer((req, res) => {
             
             console.log(`Sincronização concluída! ${masterData.length} registros totais.`);
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: true, count: masterData.length }));
+            res.end(JSON.stringify({ 
+                success: true, 
+                count: masterData.length,
+                data: masterData 
+            }));
         } catch (e) {
             console.error("ERRO NA SINCRONIZAÇÃO:", e.message);
             res.writeHead(500, { 'Content-Type': 'application/json' });
