@@ -28,8 +28,8 @@
                 <div class="spinner-accent"></div>
             </div>
             <div class="loading-text">
-                <h3>Processando Notas Fiscais</h3>
-                <p>Analisando volume de entradas e fornecedores...</p>
+                <h3>Processando Itens Recebidos</h3>
+                <p>Analisando códigos, quantidades e grupos...</p>
             </div>
         </div>
     </div>
@@ -38,7 +38,7 @@
         <header>
             <div class="logo-area">
                 <div class="header-titles">
-                    <h1>Análise de Entradas <small>v1.0</small></h1>
+                    <h1>Análise de Entradas <small>v1.2</small></h1>
                     <span class="sector-tag">Setor de Compras</span>
                 </div>
             </div>
@@ -62,8 +62,8 @@
                             <img src="logo-parafuso.png" alt="Brasil do Parafusos">
                             <span class="company-name">Brasil dos Parafusos</span>
                         </div>
-                        <h2>Dashboard de Recebimento Mensal</h2>
-                        <p>Análise automática de notas fiscais baseada no histórico de arquivos do OneDrive.</p>
+                        <h2>Dashboard de Recebimento de Itens</h2>
+                        <p>Análise detalhada de itens baseada na Base de Entrada de Itens do OneDrive.</p>
                     </div>
                 </div>
             </div>
@@ -76,19 +76,28 @@
                 </section>
                 <section class="summary-cards">
                     <div class="card-nf">
-                        <span class="nf-label">Total Recebido (Período)</span>
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+                            <span class="nf-label">Total Recebido (Período)</span>
+                            <span id="trend-total" class="card-trend-badge"></span>
+                        </div>
                         <span class="nf-value" id="total-received">R$ 0,00</span>
-                        <span class="nf-sub" id="nf-count">0 notas fiscais</span>
+                        <span class="nf-sub" id="nf-count">0 registros</span>
                     </div>
                     <div class="card-nf">
-                        <span class="nf-label">Maior Fornecedor</span>
-                        <span class="nf-value" id="top-supplier" style="font-size: 1.4rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</span>
-                        <span class="nf-sub" id="top-supplier-value">R$ 0,00</span>
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+                            <span class="nf-label">Reposição de Estoque</span>
+                            <span id="trend-reposicao" class="card-trend-badge"></span>
+                        </div>
+                        <span class="nf-value" id="qty-reposicao">0</span>
+                        <span class="nf-sub">Valor total (SPED)</span>
                     </div>
                     <div class="card-nf">
-                        <span class="nf-label">Média por Nota</span>
-                        <span class="nf-value" id="avg-nf-value">R$ 0,00</span>
-                        <span class="nf-sub">Valor contábil médio</span>
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+                            <span class="nf-label">Venda Casada</span>
+                            <span id="trend-venda-casada" class="card-trend-badge"></span>
+                        </div>
+                        <span class="nf-value" id="qty-venda-casada">0</span>
+                        <span class="nf-sub">Valor total (SPED)</span>
                     </div>
                 </section>
                 
@@ -105,25 +114,19 @@
                 <!-- Main Metric: Full Width -->
                 <div class="entradas-row-full">
                     <div class="chart-container-nf">
-                        <h3 style="margin-bottom: 1.5rem; color: var(--primary);">Ranking Principal: Top 10 Fornecedores (Valor Total)</h3>
+                        <h3 style="margin-bottom: 1.5rem; color: var(--primary);">Ranking Principal: Top 10 Itens (Por Valor)</h3>
                         <div style="height: 400px; position: relative;">
                             <canvas id="suppliers-chart"></canvas>
                         </div>
                     </div>
                 </div>
 
-                <!-- Secondary Metrics: Side-by-Side -->
-                <div class="entradas-row-split">
+                <!-- Secondary Metrics: Full Width Group Analysis -->
+                <div class="entradas-row-full">
                     <div class="chart-container-nf">
-                        <h3 style="margin-bottom: 1.5rem; color: var(--success);">Volume de Notas (Frequência por Fornecedor)</h3>
-                        <div style="height: 350px; position: relative;">
+                        <h3 style="margin-bottom: 1.5rem; color: var(--success);">Impacto por Grupo (Valor em R$)</h3>
+                        <div style="height: 450px; position: relative;">
                             <canvas id="volume-chart"></canvas>
-                        </div>
-                    </div>
-                    <div class="chart-container-nf">
-                        <h3 style="margin-bottom: 1.5rem; color: var(--warning);">Média por Nota (Ticket Médio)</h3>
-                        <div style="height: 350px; position: relative;">
-                            <canvas id="average-chart"></canvas>
                         </div>
                     </div>
                 </div>
@@ -155,9 +158,14 @@
                             <table id="entradas-table">
                                 <thead>
                                     <tr>
-                                        <th>Data Movto</th>
-                                        <th>Fornecedor (Razão Social)</th>
-                                        <th style="text-align: right;">Valor Contábil (R$)</th>
+                                        <th>Data</th>
+                                        <th>Cód.</th>
+                                        <th>Descrição</th>
+                                        <th style="text-align: center;">Qtd</th>
+                                        <th>Grupo</th>
+                                        <th>NF</th>
+                                        <th>Finalidade</th>
+                                        <th style="text-align: right;">Valor (R$)</th>
                                     </tr>
                                 </thead>
                                 <tbody id="entradas-table-body">

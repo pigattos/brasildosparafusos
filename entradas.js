@@ -98,29 +98,54 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function processIndividualFile(data) {
-        if (!data || data.length === 0) return [];
+    function processIndividualFile(rows) {
+        if (!rows || rows.length < 2) return [];
 
-        const firstRow = data[0];
-        const colDate = findColumn(firstRow, ['Dt.movto', 'Data', 'Movimento']);
-        const colSupplier = findColumn(firstRow, ['Razão social', 'Fornecedor', 'Nome']);
-        const colValue = findColumn(firstRow, ['Vlr.cont', 'Valor', 'Total']);
+        // Encontrar a linha de cabeçalho
+        let headerIndex = -1;
+        for (let i = 0; i < Math.min(rows.length, 15); i++) {
+            const rowStr = JSON.stringify(rows[i]).toLowerCase();
+            if (rowStr.includes('data') || rowStr.includes('movto') || rowStr.includes('cod') || rowStr.includes('nf')) {
+                headerIndex = i;
+                break;
+            }
+        }
+        if (headerIndex === -1) headerIndex = 0;
 
-        if (!colDate || !colSupplier || !colValue) return [];
+        const normalize = (s) => String(s || '').toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const headers = rows[headerIndex].map(h => normalize(h));
+        const findIdx = (names) => headers.findIndex(h => names.some(n => h.includes(normalize(n))));
 
-        return data.map(row => {
+        const colDate = findIdx(['dt.movto', 'data', 'movimento']);
+        const colCode = findIdx(['codigo', 'cod']);
+        const colDesc = findIdx(['descricao', 'item', 'produto']);
+        const colQty = findIdx(['quantidade', 'qtd', 'unidades']);
+        const colNF = findIdx(['nota fiscal', 'nf', 'doc']);
+        const colPurpose = findIdx(['finalid.item ordem com', 'finalidade']);
+        const colValue = findIdx(['vlr.cont.p/sped', 'vlr.cont', 'valor', 'total']);
+        const colSupplier = findIdx(['razao social', 'fornecedor', 'nome']);
+        const colGroup = 11; // Coluna L fixa
+
+        return rows.slice(headerIndex + 1).map(row => {
+            if (!row || row.length === 0) return null;
+            if (!row[colValue] && !row[colQty] && !row[colCode]) return null;
+
             const rawDateValue = row[colDate];
-            const supplier = row[colSupplier] || 'NÃO IDENTIFICADO';
-            const value = parseFloat(row[colValue]) || 0;
             const dateObj = parseExcelDate(rawDateValue);
 
             return {
                 date: formatDate(dateObj),
                 rawDate: dateObj,
-                supplier: supplier.toString().trim().replace(/\s+/g, ' '),
-                value: value
+                code: String(row[colCode] || '').trim(),
+                description: String(row[colDesc] || '').trim(),
+                quantity: parseFloat(row[colQty]) || 0,
+                group: String(row[colGroup] || 'DIVERSOS').trim(),
+                invoice: String(row[colNF] || '').trim(),
+                purpose: String(row[colPurpose] || '').trim(),
+                supplier: String(row[colSupplier] || 'NÃO IDENTIFICADO').trim(),
+                value: parseFloat(row[colValue]) || 0
             };
-        }).filter(item => item.value > 0 && !isNaN(item.rawDate.getTime()));
+        }).filter(item => item && (item.quantity !== 0 || item.value !== 0) && !isNaN(item.rawDate.getTime()));
     }
 
     async function handleFileUpload(e) {
@@ -153,7 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const workbook = XLSX.read(data, { type: 'array', cellDates: true });
                 const firstSheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheetName];
-                const json = XLSX.utils.sheet_to_json(worksheet);
+                const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
                 resolve(json);
             };
             reader.onerror = reject;
@@ -162,34 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function processData(data) {
-        if (!data || data.length === 0) return;
-
-        // Identificar colunas dinamicamente (case-insensitive e trim)
-        const firstRow = data[0];
-        const colDate = findColumn(firstRow, ['Dt.movto', 'Data', 'Movimento']);
-        const colSupplier = findColumn(firstRow, ['Razão social', 'Fornecedor', 'Nome']);
-        const colValue = findColumn(firstRow, ['Vlr.cont', 'Valor', 'Total']);
-
-        if (!colDate || !colSupplier || !colValue) {
-            alert("A planilha não possui as colunas necessárias (Dt.movto, Razão social, Vlr.cont).");
-            return;
-        }
-
-        // Mapear e limpar dados
-        nfData = data.map(row => {
-            const rawDateValue = row[colDate];
-            const supplier = row[colSupplier] || 'NÃO IDENTIFICADO';
-            const value = parseFloat(row[colValue]) || 0;
-
-            const dateObj = parseExcelDate(rawDateValue);
-
-            return {
-                date: formatDate(dateObj),
-                rawDate: dateObj,
-                supplier: supplier.toString().trim().replace(/\s+/g, ' '),
-                value: value
-            };
-        }).filter(item => item.value > 0 && !isNaN(item.rawDate.getTime()));
+        nfData = processIndividualFile(data);
     }
 
     function findColumn(row, possibilities) {
@@ -245,60 +243,109 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateDashboard() {
         if (!nfData || nfData.length === 0) return;
         
+        const searchTerm = nfSearch.value.toLowerCase();
         const filteredBySearch = nfData.filter(item => 
-            item.supplier.toLowerCase().includes(nfSearch.value.toLowerCase())
+            item.description.toLowerCase().includes(searchTerm) ||
+            item.code.toLowerCase().includes(searchTerm) ||
+            item.group.toLowerCase().includes(searchTerm) ||
+            item.supplier.toLowerCase().includes(searchTerm) ||
+            item.invoice.toLowerCase().includes(searchTerm)
         );
         const filtered = filterByPeriodAndSearch();
         
         // 1. Stats
-        const total = filtered.reduce((acc, item) => acc + item.value, 0);
+        const totalValue = filtered.reduce((acc, item) => acc + item.value, 0);
         const count = filtered.length;
-        const avg = count > 0 ? total / count : 0;
 
-        document.getElementById('total-received').textContent = formatCurrency(total);
-        document.getElementById('nf-count').textContent = `${count} notas fiscais`;
-        document.getElementById('avg-nf-value').textContent = formatCurrency(avg);
+        const valReposicao = filtered.reduce((acc, item) => {
+            const p = (item.purpose || '').toLowerCase();
+            return (p.includes('reposicao') || p.includes('estoque')) ? acc + item.value : acc;
+        }, 0);
 
-        // 2. Top Supplier
-        const supplierTotals = aggregateBySupplier(filtered);
-        const topSupplierEl = document.getElementById('top-supplier');
-        const topSupplierValueEl = document.getElementById('top-supplier-value');
+        const valVendaCasada = filtered.reduce((acc, item) => {
+            const p = (item.purpose || '').toLowerCase();
+            return (p.includes('venda') && p.includes('casada')) ? acc + item.value : acc;
+        }, 0);
+
+        document.getElementById('total-received').textContent = formatCurrency(totalValue);
+        document.getElementById('nf-count').textContent = `${count} registros`;
+        document.getElementById('qty-reposicao').textContent = formatCurrency(valReposicao);
+        document.getElementById('qty-venda-casada').textContent = formatCurrency(valVendaCasada);
+
+        // 2. Trend Logic: Indicators only for specific months
+        let comparisonMonth = selectedMonth;
+
+        let prevSupplierLookup = {};
+        let currentSupplierLookup = {};
+        let prevGroupLookup = {};
+        let currentGroupLookup = {};
         
-        if (supplierTotals.length > 0) {
-            topSupplierEl.textContent = supplierTotals[0].supplier;
-            topSupplierValueEl.textContent = formatCurrency(supplierTotals[0].total);
-        } else {
-            topSupplierEl.textContent = "-";
-            topSupplierValueEl.textContent = "R$ 0,00";
-        }
+        let prevTotals = { total: 0, reposicao: 0, vendaCasada: 0 };
 
-        // 3. Previous period for comparison arrows
-        let prevSupplierTotals = [];
-        if (selectedMonth !== 'all') {
-            const [yr, mo] = selectedMonth.split('-').map(Number);
+        if (comparisonMonth !== 'all') {
+            const [yr, mo] = comparisonMonth.split('-').map(Number);
             const prevMo = mo === 1 ? 12 : mo - 1;
             const prevYr = mo === 1 ? yr - 1 : yr;
             const prevKey = `${prevYr}-${String(prevMo).padStart(2, '0')}`;
-            const prevFiltered = nfData.filter(item => {
+            
+            // Current month data (for trends when in "All" view)
+            const currData = nfData.filter(item => {
                 const d = item.rawDate;
-                const k = `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}`;
-                return k === prevKey;
+                return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}` === comparisonMonth;
             });
-            prevSupplierTotals = aggregateBySupplier(prevFiltered);
+            const currSuppliers = aggregateBySupplier(currData);
+            currentSupplierLookup = Object.fromEntries(currSuppliers.map(s => [s.supplier.toLowerCase().trim(), s.total]));
+            const currGroups = aggregateByGroup(currData);
+            currentGroupLookup = Object.fromEntries(currGroups.map(g => [g.group.toLowerCase().trim(), g.total]));
+
+            // Previous month data
+            const prevData = nfData.filter(item => {
+                const d = item.rawDate;
+                return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}` === prevKey;
+            });
+            
+            // Calculate totals for cards
+            prevTotals.total = prevData.reduce((acc, item) => acc + item.value, 0);
+            prevTotals.reposicao = prevData.reduce((acc, item) => {
+                const p = (item.purpose || '').toLowerCase();
+                return (p.includes('reposicao') || p.includes('estoque')) ? acc + item.value : acc;
+            }, 0);
+            prevTotals.vendaCasada = prevData.reduce((acc, item) => {
+                const p = (item.purpose || '').toLowerCase();
+                return (p.includes('venda') && p.includes('casada')) ? acc + item.value : acc;
+            }, 0);
+
+            const prevSuppliers = aggregateBySupplier(prevData);
+            prevSupplierLookup = Object.fromEntries(prevSuppliers.map(s => [s.supplier.toLowerCase().trim(), s.total]));
+            const prevGroups = aggregateByGroup(prevData);
+            prevGroupLookup = Object.fromEntries(prevGroups.map(g => [g.group.toLowerCase().trim(), g.total]));
+            
+            // Update Card Badges
+            renderCardTrend('trend-total', totalValue, prevTotals.total);
+            renderCardTrend('trend-reposicao', valReposicao, prevTotals.reposicao);
+            renderCardTrend('trend-venda-casada', valVendaCasada, prevTotals.vendaCasada);
+        } else {
+            // Hide trends if no comparison
+            ['trend-total', 'trend-reposicao', 'trend-venda-casada'].forEach(id => {
+                document.getElementById(id).style.display = 'none';
+            });
         }
+        
+        // Define supplierTotals for the ranking chart
+        const supplierTotals = aggregateBySupplier(filteredBySearch);
+        renderSuppliersChart(supplierTotals.slice(0, 10), currentSupplierLookup, prevSupplierLookup);
+
+        // 3. Aggregate groups for charts
+        const groupTotals = aggregateByGroup(filtered);
 
         // 4. Charts
-        const displayData = showAllSuppliers ? supplierTotals : supplierTotals.slice(0, 10);
-        
-        renderSuppliersChart(displayData, prevSupplierTotals);
-        renderVolumeChart(displayData, prevSupplierTotals);
-        renderAverageChart(displayData, prevSupplierTotals);
+        renderVolumeChart(groupTotals.slice(0, 20), currentGroupLookup, prevGroupLookup);
         renderDailyChart(aggregateByDate(filtered));
-        renderMonthlyChart(aggregateByMonth(filteredBySearch));
+        renderMonthlyChart(aggregateByMonth(filteredBySearch)); // Monthly chart should keep full history
 
 
         // 4. Table
-        renderTable(filtered);
+        renderTable(filteredBySearch);
         
         // 5. Update Timeline
         renderTimeline();
@@ -307,7 +354,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function filterByPeriodAndSearch() {
         const searchTerm = nfSearch.value.toLowerCase();
         return nfData.filter(item => {
-            const matchesSearch = item.supplier.toLowerCase().includes(searchTerm);
+            const matchesSearch = 
+                item.description.toLowerCase().includes(searchTerm) ||
+                item.code.toLowerCase().includes(searchTerm) ||
+                item.group.toLowerCase().includes(searchTerm) ||
+                item.supplier.toLowerCase().includes(searchTerm) ||
+                item.invoice.toLowerCase().includes(searchTerm);
             
             // Extrair YYYY-MM do item
             const d = item.rawDate;
@@ -368,32 +420,75 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function aggregateBySupplier(data) {
-        const stats = {}; // key = normalized supplier name
-        const display = {}; // key = normalized → display name (trimmed)
-
+        const map = {};
         data.forEach(item => {
-            // Normalize to avoid casing/whitespace duplicates across months
-            const key = item.supplier.toLowerCase().trim();
-            const name = item.supplier.trim();
-
-            if (!stats[key]) {
-                stats[key] = { total: 0, count: 0 };
-                display[key] = name; // keep first-seen trimmed name
+            const supplier = item.supplier || 'N/A';
+            if (!map[supplier]) {
+                map[supplier] = { 
+                    supplier, 
+                    total: 0, 
+                    reposicao: 0, 
+                    vendaCasada: 0 
+                };
             }
-            stats[key].total += item.value;
-            stats[key].count += 1;
+            map[supplier].total += item.value;
+            
+            const p = (item.purpose || '').toLowerCase();
+            if (p.includes('reposicao') || p.includes('estoque')) {
+                map[supplier].reposicao += item.value;
+            } else if (p.includes('venda') && p.includes('casada')) {
+                map[supplier].vendaCasada += item.value;
+            }
         });
 
-        return Object.keys(stats).map(key => {
-            const total = stats[key].total;
-            const count = stats[key].count;
-            return {
-                supplier: display[key], // trimmed canonical name
-                total,
-                count,
-                average: total / count
-            };
-        }).sort((a, b) => b.total - a.total);
+        return Object.values(map).sort((a, b) => b.total - a.total);
+    }
+
+    function aggregateByGroup(data) {
+        const stats = {};
+        data.forEach(item => {
+            const key = item.group || 'DIVERSOS';
+            if (!stats[key]) {
+                stats[key] = { 
+                    total: 0, 
+                    count: 0,
+                    reposicao: 0,
+                    vendaCasada: 0
+                };
+            }
+            stats[key].total += item.value;
+            stats[key].count += item.quantity;
+
+            const p = (item.purpose || '').toLowerCase();
+            if (p.includes('reposicao') || p.includes('estoque')) {
+                stats[key].reposicao += item.value;
+            } else if (p.includes('venda') && p.includes('casada')) {
+                stats[key].vendaCasada += item.value;
+            }
+        });
+        return Object.keys(stats).map(key => ({
+            group: key,
+            total: stats[key].total,
+            count: stats[key].count,
+            reposicao: stats[key].reposicao,
+            vendaCasada: stats[key].vendaCasada
+        })).sort((a, b) => b.total - a.total);
+    }
+
+    function aggregateByPurpose(data) {
+        const stats = {};
+        data.forEach(item => {
+            const key = item.purpose || 'NÃO INFORMADO';
+            if (!stats[key]) stats[key] = { total: 0, count: 0 };
+            stats[key].total += item.value;
+            stats[key].count += item.quantity;
+        });
+        return Object.keys(stats).map(key => ({
+            supplier: key, // Label para o gráfico
+            total: stats[key].total,
+            count: stats[key].count,
+            average: stats[key].total
+        })).sort((a, b) => b.total - a.total);
     }
 
     function aggregateByDate(data) {
@@ -426,11 +521,20 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!map[monthKey]) {
                 map[monthKey] = { 
                     total: 0, 
+                    reposicao: 0,
+                    vendaCasada: 0,
                     label: d.toLocaleString('pt-br', { month: 'short', year: '2-digit' }),
                     key: monthKey
                 };
             }
             map[monthKey].total += item.value;
+            
+            const p = (item.purpose || '').toLowerCase();
+            if (p.includes('reposicao') || p.includes('estoque')) {
+                map[monthKey].reposicao += item.value;
+            } else if (p.includes('venda') && p.includes('casada')) {
+                map[monthKey].vendaCasada += item.value;
+            }
         });
 
         // Ordenar por chave de mês
@@ -447,7 +551,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${item.date}</td>
-                <td>${item.supplier}</td>
+                <td>${item.code}</td>
+                <td title="${item.description}">${item.description.length > 30 ? item.description.substring(0, 30) + '...' : item.description}</td>
+                <td style="text-align: center;">${item.quantity.toLocaleString('pt-br')}</td>
+                <td>${item.group}</td>
+                <td>${item.invoice}</td>
+                <td>${item.purpose}</td>
                 <td style="text-align: right; font-weight: 500;">${formatCurrency(item.value)}</td>
             `;
             tbody.appendChild(tr);
@@ -462,101 +571,107 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     }
 
-    function renderSuppliersChart(topData, prevData = []) {
+    function renderSuppliersChart(items, currentLookup, prevLookup) {
         const ctx = document.getElementById('suppliers-chart').getContext('2d');
-        const prevLookup = prevData.length
-            ? Object.fromEntries(prevData.map(d => [d.supplier.toLowerCase().trim(), d.total]))
-            : null;
-        
         if (suppliersChart) suppliersChart.destroy();
-
-        // Criar gradiente
-        const gradient = ctx.createLinearGradient(0, 0, 400, 0);
-        gradient.addColorStop(0, 'rgba(99, 102, 241, 0.8)');
-        gradient.addColorStop(1, 'rgba(16, 185, 129, 0.8)');
 
         suppliersChart = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: topData.map(d => d.supplier),
-                datasets: [{
-                    label: 'Total Recebido (R$)',
-                    data: topData.map(d => d.total),
-                    backgroundColor: gradient,
-                    borderColor: 'rgba(255, 255, 255, 0.2)',
-                    borderWidth: 1,
-                    borderRadius: 6,
-                    maxBarThickness: 40,
-                    hoverBackgroundColor: 'rgba(99, 102, 241, 1)',
-                }]
+                labels: items.map(d => d.supplier),
+                datasets: [
+                    {
+                        label: 'Reposição de Estoque',
+                        data: items.map(d => d.reposicao),
+                        backgroundColor: 'rgba(99, 102, 241, 0.85)',
+                        borderColor: '#6366f1',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                        stack: 'stack1'
+                    },
+                    {
+                        label: 'Venda Casada',
+                        data: items.map(d => d.vendaCasada),
+                        backgroundColor: 'rgba(16, 185, 129, 0.85)',
+                        borderColor: '#10b981',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                        stack: 'stack1'
+                    },
+                    {
+                        label: 'Outros',
+                        data: items.map(d => Math.max(0, d.total - d.reposicao - d.vendaCasada)),
+                        backgroundColor: 'rgba(148, 163, 184, 0.3)',
+                        borderColor: 'rgba(148, 163, 184, 0.5)',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                        stack: 'stack1'
+                    }
+                ]
             },
             plugins: [
                 ChartDataLabels,
-                makeHorizPercentPlugin(topData, 'total', prevLookup,
-                    '#818cf8', 'rgba(99,102,241,0.12)',
-                    'rgba(99,102,241,0.5)', 'rgba(99,102,241,0.35)'
-                )
+                makeHorizPercentPlugin(items, 'supplier', currentLookup, prevLookup, '#e2e8f0', 'rgba(99,102,241,0.1)', 'rgba(99,102,241,0.3)', 'rgba(99,102,241,0.15)')
             ],
             options: {
                 indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
-                animation: { duration: 1000 },
-                layout: { padding: { right: 50, top: 28 } },
-                onClick: (e, elements) => {
-                    if (elements.length > 0) {
-                        const index = elements[0].index;
-                        const supplier = topData[index].supplier;
-                        nfSearch.value = supplier;
-                        updateDashboard();
-                    } else {
-                        // Limpar filtro se clicar fora das barras
-                        if (nfSearch.value !== "") {
-                            nfSearch.value = "";
-                            updateDashboard();
-                        }
-                    }
-                },
-                onHover: (event, chartElement) => {
-                    event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
-                },
+                layout: { padding: { right: 120, top: 10 } },
                 plugins: {
-                    legend: { display: false },
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: { color: '#e2e8f0', font: { family: 'Outfit', size: 10 } }
+                    },
                     datalabels: {
-                        anchor: 'end',
-                        align: 'right',
-                        color: '#f8fafc',
-                        font: { weight: 'bold', size: 10 },
-                        formatter: (value) => formatCurrency(value),
-                        clip: false
+                        display: (context) => {
+                            const val = context.dataset.data[context.dataIndex];
+                            const total = context.chart.data.datasets.reduce((acc, ds) => acc + (ds.data[context.dataIndex] || 0), 0);
+                            return total > 0 && (val / total) > 0.2; // Mostra % se for > 20% do fornecedor
+                        },
+                        color: '#fff',
+                        font: { weight: 'bold', size: 9 },
+                        formatter: (value, context) => {
+                            const total = context.chart.data.datasets.reduce((acc, ds) => acc + (ds.data[context.dataIndex] || 0), 0);
+                            const pct = total > 0 ? ((value / total) * 100).toFixed(0) : 0;
+                            return pct + '%';
+                        }
                     },
                     tooltip: {
-                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                        titleColor: '#6366f1',
-                        bodyColor: '#fff',
+                        mode: 'index',
+                        intersect: false,
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
                         padding: 12,
-                        cornerRadius: 8,
-                        displayColors: false,
                         callbacks: {
-                            label: (context) => `Total: ${formatCurrency(context.raw)}`
+                            label: function(context) {
+                                const val = context.raw;
+                                const total = context.chart.data.datasets.reduce((acc, ds) => acc + (ds.data[context.dataIndex] || 0), 0);
+                                const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                                return `${context.dataset.label}: ${formatCurrency(val)} (${pct}%)`;
+                            },
+                            footer: (items) => {
+                                const total = items.reduce((acc, it) => acc + it.raw, 0);
+                                return `TOTAL: ${formatCurrency(total)}`;
+                            }
                         }
                     }
                 },
                 scales: {
-                    x: { 
-                        display: false,
-                        grid: { display: false },
-                        grace: '10%'
+                    x: {
+                        stacked: true,
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#94a3b8', callback: (v) => formatCurrency(v) }
                     },
-                    y: { 
+                    y: {
+                        stacked: true,
                         grid: { display: false },
-                        beginAtZero: true,
                         ticks: { 
                             color: '#e2e8f0', 
-                            font: { size: 11, family: 'Outfit' },
+                            font: { family: 'Outfit', size: 10 },
                             callback: function(value) {
                                 const label = this.getLabelForValue(value);
-                                return label.length > 20 ? label.substr(0, 20) + '...' : label;
+                                return label.length > 15 ? label.substr(0, 15) + '...' : label;
                             }
                         }
                     }
@@ -564,178 +679,201 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-    function renderVolumeChart(topData, prevData = []) {
+
+    function makeHorizPercentPlugin(items, valueKey, prevLookup,
+        neutralColor, neutralFill, neutralStroke, neutralGlow) {
+
+        const PILL_BG = '#0d1526'; 
+        const total = items.reduce((s, d) => s + (d[valueKey] || 0), 0);
+
+        return {
+            id: 'horizPercentBadge',
+            afterDatasetsDraw(chart) {
+                const { ctx: c } = chart;
+                const meta = chart.getDatasetMeta(0);
+
+                items.forEach((d, i) => {
+                    const barEl = meta.data[i];
+                    if (!barEl) return;
+
+                    const pct = total > 0 ? (d[valueKey] / total) * 100 : 0;
+                    if (pct < 0.1) return;
+
+                    let arrow = '';
+                    let txtColor  = neutralColor;
+                    let bdColor   = neutralStroke;
+                    let glowColor = neutralGlow;
+
+                    if (prevLookup) {
+                        const prevVal = prevLookup[d.supplier.toLowerCase()];
+                        if (prevVal !== undefined) {
+                            const curr = d[valueKey];
+                            if (curr > prevVal) {
+                                arrow    = '↑';
+                                txtColor  = '#34d399';
+                                bdColor   = 'rgba(52,211,153,0.45)';
+                                glowColor = 'rgba(52,211,153,0.25)';
+                            } else if (curr < prevVal) {
+                                arrow    = '↓';
+                                txtColor  = '#fb7185';
+                                bdColor   = 'rgba(251,113,133,0.45)';
+                                glowColor = 'rgba(251,113,133,0.25)';
+                            }
+                        }
+                    }
+
+                    const text = arrow ? `${arrow} ${pct.toFixed(1)}%` : `${pct.toFixed(1)}%`;
+
+                    const barRight   = barEl.x;
+                    const barCenterY = barEl.y;
+                    const barHalfH   = (barEl.height || 28) / 2;
+
+                    c.save();
+                    c.font = '600 10px Outfit, system-ui, sans-serif';
+
+                    const tw    = c.measureText(text).width;
+                    const padX  = 9;
+                    const pillW = tw + padX * 2;
+                    const pillH = 18;
+                    const pillR = pillH / 2;
+                    const pillX = barRight + 10; // Position to the right of the bar
+                    const pillY = barCenterY - pillH / 2;
+
+                    c.shadowColor   = glowColor;
+                    c.shadowBlur    = 8;
+                    c.beginPath();
+                    c.roundRect(pillX, pillY, pillW, pillH, pillR);
+                    c.fillStyle = PILL_BG;
+                    c.fill();
+
+                    c.shadowBlur  = 0;
+                    c.strokeStyle = bdColor;
+                    c.lineWidth   = 1;
+                    c.stroke();
+
+                    c.fillStyle    = txtColor;
+                    c.textAlign    = 'center';
+                    c.textBaseline = 'middle';
+                    c.fillText(text, pillX + pillW / 2, pillY + pillH / 2);
+
+                    c.restore();
+                });
+            }
+        };
+    }
+    function renderVolumeChart(topData, currentLookup, prevLookup) {
         const ctx = document.getElementById('volume-chart').getContext('2d');
-        const prevLookup = prevData.length
-            ? Object.fromEntries(prevData.map(d => [d.supplier.toLowerCase().trim(), d.count]))
-            : null;
         if (volumeChart) volumeChart.destroy();
 
-        // Ordenar por volume para este gráfico
-        const volumeData = [...topData].sort((a, b) => b.count - a.count);
-
-        const gradient = ctx.createLinearGradient(0, 0, 400, 0);
-        gradient.addColorStop(0, 'rgba(16, 185, 129, 0.8)');
-        gradient.addColorStop(1, 'rgba(34, 197, 94, 0.8)');
+        // Ordenar por valor (total) para este gráfico
+        const volumeData = [...topData].sort((a, b) => b.total - a.total);
 
         volumeChart = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: volumeData.map(d => d.supplier),
-                datasets: [{
-                    label: 'Quantidade de Notas',
-                    data: volumeData.map(d => d.count),
-                    backgroundColor: gradient,
-                    borderColor: 'rgba(255, 255, 255, 0.2)',
-                    borderWidth: 1,
-                    borderRadius: 6,
-                    maxBarThickness: 40,
-                    hoverBackgroundColor: 'rgba(16, 185, 129, 1)',
-                }]
+                labels: volumeData.map(d => d.group),
+                datasets: [
+                    {
+                        label: 'Reposição de Estoque',
+                        data: volumeData.map(d => d.reposicao),
+                        backgroundColor: 'rgba(99, 102, 241, 0.85)',
+                        borderColor: '#6366f1',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                        stack: 'stack1'
+                    },
+                    {
+                        label: 'Venda Casada',
+                        data: volumeData.map(d => d.vendaCasada),
+                        backgroundColor: 'rgba(16, 185, 129, 0.85)',
+                        borderColor: '#10b981',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                        stack: 'stack1'
+                    },
+                    {
+                        label: 'Outros',
+                        data: volumeData.map(d => Math.max(0, d.total - d.reposicao - d.vendaCasada)),
+                        backgroundColor: 'rgba(148, 163, 184, 0.3)',
+                        borderColor: 'rgba(148, 163, 184, 0.5)',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                        stack: 'stack1'
+                    }
+                ]
             },
             plugins: [
                 ChartDataLabels,
-                makeHorizPercentPlugin(volumeData, 'count', prevLookup,
-                    '#10b981', 'rgba(16,185,129,0.12)',
-                    'rgba(16,185,129,0.5)', 'rgba(16,185,129,0.35)'
-                )
+                makeHorizPercentPlugin(volumeData, 'group', currentLookup, prevLookup, '#e2e8f0', 'rgba(99,102,241,0.1)', 'rgba(99,102,241,0.3)', 'rgba(99,102,241,0.15)')
             ],
             options: {
                 indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
-                layout: { padding: { right: 50, top: 28 } },
-                onClick: (e, elements) => {
-                    if (elements.length > 0) {
-                        const index = elements[0].index;
-                        const supplier = volumeData[index].supplier;
-                        nfSearch.value = supplier;
-                        updateDashboard();
-                    } else {
-                        if (nfSearch.value !== "") {
-                            nfSearch.value = "";
-                            updateDashboard();
-                        }
-                    }
-                },
-                onHover: (event, chartElement) => {
-                    event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
-                },
+                layout: { padding: { right: 120, top: 10 } },
                 plugins: {
-                    legend: { display: false },
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: { color: '#e2e8f0', font: { family: 'Outfit', size: 10 } }
+                    },
                     datalabels: {
-                        anchor: 'end',
-                        align: 'right',
-                        color: '#f8fafc',
-                        font: { weight: 'bold', size: 10 },
-                        formatter: (value) => `${value} NFs`,
-                        clip: false
+                        display: (context) => {
+                            const val = context.dataset.data[context.dataIndex];
+                            const total = context.chart.data.datasets.reduce((acc, ds) => acc + (ds.data[context.dataIndex] || 0), 0);
+                            return total > 0 && (val / total) > 0.15; // Mostra % se for > 15% do grupo
+                        },
+                        color: '#fff',
+                        font: { weight: 'bold', size: 9 },
+                        formatter: (value, context) => {
+                            const total = context.chart.data.datasets.reduce((acc, ds) => acc + (ds.data[context.dataIndex] || 0), 0);
+                            const pct = total > 0 ? ((value / total) * 100).toFixed(0) : 0;
+                            return pct + '%';
+                        }
                     },
                     tooltip: {
-                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                        titleColor: '#10b981',
-                        bodyColor: '#fff',
+                        mode: 'index',
+                        intersect: false,
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
                         padding: 12,
-                        cornerRadius: 8,
-                        displayColors: false,
                         callbacks: {
-                            label: (context) => `Volume: ${context.raw} notas`
+                            label: function(context) {
+                                const val = context.raw;
+                                const total = context.chart.data.datasets.reduce((acc, ds) => acc + (ds.data[context.dataIndex] || 0), 0);
+                                const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                                return `${context.dataset.label}: ${formatCurrency(val)} (${pct}%)`;
+                            },
+                            footer: (items) => {
+                                const total = items.reduce((acc, it) => acc + it.raw, 0);
+                                return `TOTAL: ${formatCurrency(total)}`;
+                            }
                         }
                     }
                 },
                 scales: {
-                    x: { display: false, grid: { display: false }, grace: '10%' },
-                    y: { grid: { display: false }, ticks: { color: '#e2e8f0', font: { size: 11, family: 'Outfit' } } }
+                    x: { 
+                        stacked: true,
+                        display: true,
+                        grid: { color: 'rgba(255,255,255,0.05)' }, 
+                        ticks: { color: '#94a3b8', callback: (v) => formatCurrency(v) }
+                    },
+                    y: { 
+                        stacked: true,
+                        grid: { display: false }, 
+                        ticks: { 
+                            color: '#e2e8f0', 
+                            font: { size: 10 },
+                            callback: function(value) {
+                                const label = this.getLabelForValue(value);
+                                return label.length > 20 ? label.substr(0, 20) + '...' : label;
+                            }
+                        } 
+                    }
                 }
             }
         });
     }
 
-    function renderAverageChart(topData, prevData = []) {
-        const ctx = document.getElementById('average-chart').getContext('2d');
-        const prevLookup = prevData.length
-            ? Object.fromEntries(prevData.map(d => [d.supplier.toLowerCase().trim(), d.average]))
-            : null;
-        if (averageChart) averageChart.destroy();
-
-        const avgData = [...topData].sort((a, b) => b.average - a.average);
-
-        const gradient = ctx.createLinearGradient(0, 0, 400, 0);
-        gradient.addColorStop(0, 'rgba(245, 158, 11, 0.8)');
-        gradient.addColorStop(1, 'rgba(251, 191, 36, 0.8)');
-
-        averageChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: avgData.map(d => d.supplier),
-                datasets: [{
-                    label: 'Média por Nota (R$)',
-                    data: avgData.map(d => d.average),
-                    backgroundColor: gradient,
-                    borderColor: 'rgba(255, 255, 255, 0.2)',
-                    borderWidth: 1,
-                    borderRadius: 6,
-                    maxBarThickness: 40,
-                    hoverBackgroundColor: 'rgba(245, 158, 11, 1)',
-                }]
-            },
-            plugins: [
-                ChartDataLabels,
-                makeHorizPercentPlugin(avgData, 'average', prevLookup,
-                    '#f59e0b', 'rgba(245,158,11,0.12)',
-                    'rgba(245,158,11,0.5)', 'rgba(245,158,11,0.35)'
-                )
-            ],
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                layout: { padding: { right: 50, top: 28 } },
-                onClick: (e, elements) => {
-                    if (elements.length > 0) {
-                        const index = elements[0].index;
-                        const supplier = avgData[index].supplier;
-                        nfSearch.value = supplier;
-                        updateDashboard();
-                    } else {
-                        if (nfSearch.value !== "") {
-                            nfSearch.value = "";
-                            updateDashboard();
-                        }
-                    }
-                },
-                onHover: (event, chartElement) => {
-                    event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
-                },
-                plugins: {
-                    legend: { display: false },
-                    datalabels: {
-                        anchor: 'end',
-                        align: 'right',
-                        color: '#f8fafc',
-                        font: { weight: 'bold', size: 10 },
-                        formatter: (value) => formatCurrency(value),
-                        clip: false
-                    },
-                    tooltip: {
-                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                        titleColor: '#f59e0b',
-                        bodyColor: '#fff',
-                        padding: 12,
-                        cornerRadius: 8,
-                        displayColors: false,
-                        callbacks: {
-                            label: (context) => `Média: ${formatCurrency(context.raw)}`
-                        }
-                    }
-                },
-                scales: {
-                    x: { display: false, grid: { display: false }, grace: '15%' },
-                    y: { grid: { display: false }, ticks: { color: '#e2e8f0', font: { size: 11, family: 'Outfit' } } }
-                }
-            }
-        });
-    }
 
     function renderDailyChart(dailyData) {
         const ctx = document.getElementById('daily-chart').getContext('2d');
@@ -850,22 +988,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * Plugin de badges premium para gráficos horizontais.
-     * Mostra ↑/↓ + % do total. A seta compara o valor do fornecedor
-     * no período atual vs. o período anterior (prevLookup).
+     * Exibe a variação percentual (crescimento/queda) em relação ao mês anterior.
      *
-     * @param {Array}       items        - dados do gráfico
-     * @param {string}      valueKey     - chave de valor ('total'|'count'|'average')
-     * @param {Object|null} prevLookup   - { [supplier]: prevValue } ou null
-     * @param {string}      neutralColor - cor base quando sem comparação
-     * @param {string}      neutralFill  - fill rgba neutro
-     * @param {string}      neutralStroke- borda rgba neutra
-     * @param {string}      neutralGlow  - glow rgba neutro
+     * @param {Array}       items         - Dados do gráfico
+     * @param {string}      labelKey      - Chave do label ('supplier'|'group')
+     * @param {Object}      currentLookup - { [key]: currentValue }
+     * @param {Object}      prevLookup    - { [key]: prevValue }
      */
-    function makeHorizPercentPlugin(items, valueKey, prevLookup,
+    function makeHorizPercentPlugin(items, labelKey, currentLookup, prevLookup,
         neutralColor, neutralFill, neutralStroke, neutralGlow) {
 
-        const PILL_BG = '#0d1526'; // solid dark: same tone as chart bg
-        const total = items.reduce((s, d) => s + (d[valueKey] || 0), 0);
+        const PILL_BG = '#0d1526'; 
 
         return {
             id: 'horizPercentBadge',
@@ -877,57 +1010,57 @@ document.addEventListener('DOMContentLoaded', () => {
                     const barEl = meta.data[i];
                     if (!barEl) return;
 
-                    const pct = total > 0 ? (d[valueKey] / total) * 100 : 0;
-                    if (pct < 0.1) return;
+                    const key = d[labelKey].toLowerCase().trim();
+                    const curr = currentLookup ? (currentLookup[key] || 0) : 0;
+                    const prev = prevLookup ? (prevLookup[key] || 0) : 0;
 
-                    // Direction vs previous period
-                    let arrow = '';
+                    let growth = 0;
+                    let text = '';
                     let txtColor  = neutralColor;
                     let bdColor   = neutralStroke;
                     let glowColor = neutralGlow;
 
-                    if (prevLookup !== null) {
-                        const prevVal = prevLookup[d.supplier.toLowerCase().trim()];
-                        if (prevVal !== undefined) {
-                            const curr = d[valueKey];
-                            if (curr > prevVal) {
-                                arrow    = '↑';
-                                txtColor  = '#34d399';
-                                bdColor   = 'rgba(52,211,153,0.45)';
-                                glowColor = 'rgba(52,211,153,0.25)';
-                            } else if (curr < prevVal) {
-                                arrow    = '↓';
-                                txtColor  = '#fb7185';
-                                bdColor   = 'rgba(251,113,133,0.45)';
-                                glowColor = 'rgba(251,113,133,0.25)';
-                            }
-                            // equal or new → no arrow, keep neutral
+                    if (prev > 0) {
+                        growth = ((curr - prev) / prev) * 100;
+                        if (growth > 0) {
+                            text = `+${growth.toFixed(1)}%`;
+                            txtColor  = '#34d399';
+                            bdColor   = 'rgba(52,211,153,0.45)';
+                            glowColor = 'rgba(52,211,153,0.25)';
+                        } else if (growth < 0) {
+                            text = `${growth.toFixed(1)}%`;
+                            txtColor  = '#fb7185';
+                            bdColor   = 'rgba(251,113,133,0.45)';
+                            glowColor = 'rgba(251,113,133,0.25)';
+                        } else {
+                            text = '0.0%';
                         }
-                        // supplier not in prev period → no arrow, neutral badge
+                    } else if (curr > 0) {
+                        text = 'Novo';
+                        txtColor  = '#60a5fa';
+                        bdColor   = 'rgba(96,165,250,0.45)';
+                        glowColor = 'rgba(96,165,250,0.25)';
                     }
 
-                    const text = arrow ? `${arrow} ${pct.toFixed(1)}%` : null;
-                    // Only render badge when there's directional data (↑ or ↓)
                     if (!text) return;
 
                     const barRight   = barEl.x;
                     const barCenterY = barEl.y;
-                    const barHalfH   = (barEl.height || 28) / 2;
 
                     c.save();
-                    c.font = '600 10px Outfit, system-ui, sans-serif';
+                    c.font = '700 11px Outfit, system-ui, sans-serif';
 
                     const tw    = c.measureText(text).width;
-                    const padX  = 9;
+                    const padX  = 10;
                     const pillW = tw + padX * 2;
-                    const pillH = 18;
+                    const pillH = 20;
                     const pillR = pillH / 2;
-                    const pillX = barRight - pillW;
-                    const pillY = barCenterY - barHalfH - pillH - 3;
+                    const pillX = barRight + 12; // Mover para fora da barra
+                    const pillY = barCenterY - pillH / 2; // Centralizar verticalmente
 
                     // Subtle glow
                     c.shadowColor   = glowColor;
-                    c.shadowBlur    = 8;
+                    c.shadowBlur    = 12;
                     c.shadowOffsetX = 0;
                     c.shadowOffsetY = 0;
 
@@ -940,7 +1073,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Thin colored border
                     c.shadowBlur  = 0;
                     c.strokeStyle = bdColor;
-                    c.lineWidth   = 1;
+                    c.lineWidth   = 1.5;
                     c.stroke();
 
                     // Text
@@ -968,120 +1101,99 @@ document.addEventListener('DOMContentLoaded', () => {
         const ctx = document.getElementById('monthly-chart').getContext('2d');
         if (monthlyChart) monthlyChart.destroy();
 
-        const variations = calcMonthlyVariation(monthlyData);
-
-        // Generous top padding: badge (24px) + connector (~26px) + value label (~18px) + gap
-        const layout = { padding: { top: 72, right: 8, left: 8 } };
-
         monthlyChart = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: monthlyData.map(d => d.label),
-                datasets: [{
-                    label: 'Total Recebido Mensal (R$)',
-                    data: monthlyData.map(d => d.total),
-                    backgroundColor: monthlyData.map(d =>
-                        d.key === selectedMonth ? 'rgba(16, 185, 129, 0.8)' : 'rgba(99, 102, 241, 0.6)'
-                    ),
-                    borderColor: monthlyData.map(d =>
-                        d.key === selectedMonth ? '#10b981' : '#6366f1'
-                    ),
-                    borderWidth: 2,
-                    borderRadius: 8,
-                    hoverBackgroundColor: 'rgba(99, 102, 241, 0.9)',
-                }]
-            },
-            plugins: [
-                ChartDataLabels,
-                // Custom plugin: draws variation badge above datalabels
-                {
-                    id: 'monthlyVariationBadge',
-                    afterDatasetsDraw(chart) {
-                        const { ctx: c, scales: { y } } = chart;
-                        const meta = chart.getDatasetMeta(0);
-
-                        monthlyData.forEach((d, i) => {
-                            const v = variations[i];
-                            if (v === null || v === undefined) return;
-
-                            const bar    = meta.data[i];
-                            const barX   = bar.x;
-                            const barTop = y.getPixelForValue(d.total);
-
-                            const isUp       = v >= 0;
-                            const arrow      = isUp ? '↑' : '↓';
-                            const color      = isUp ? '#34d399' : '#fb7185'; // softer emerald/rose
-                            const glowColor  = isUp ? 'rgba(52,211,153,0.22)' : 'rgba(251,113,133,0.22)';
-                            const bdColor    = isUp ? 'rgba(52,211,153,0.45)' : 'rgba(251,113,133,0.45)';
-                            const text       = `${arrow} ${Math.abs(v).toFixed(1)}%`;
-
-                            c.save();
-
-                            // Measure for pill
-                            c.font = '600 11px Outfit, system-ui, sans-serif';
-                            const tw    = c.measureText(text).width;
-                            const padX  = 11;
-                            const pillW = tw + padX * 2;
-                            const pillH = 20;
-                            const pillR = pillH / 2;
-                            const pillX = barX - pillW / 2;
-                            // Place pill 52px above bar top (gives room for value label below)
-                            const pillY = barTop - 52;
-
-                            // Subtle glow
-                            c.shadowColor   = glowColor;
-                            c.shadowBlur    = 8;
-                            c.shadowOffsetX = 0;
-                            c.shadowOffsetY = 0;
-
-                            // Solid dark pill fill — crisp against bars
-                            c.beginPath();
-                            c.roundRect(pillX, pillY, pillW, pillH, pillR);
-                            c.fillStyle = '#0d1526';
-                            c.fill();
-
-                            // Thin colored border
-                            c.shadowBlur  = 0;
-                            c.strokeStyle = bdColor;
-                            c.lineWidth   = 1;
-                            c.stroke();
-
-                            // Pill text
-                            c.fillStyle    = color;
-                            c.font         = '600 11px Outfit, system-ui, sans-serif';
-                            c.textAlign    = 'center';
-                            c.textBaseline = 'middle';
-                            c.fillText(text, barX, pillY + pillH / 2);
-
-                            // Dashed connector from pill bottom → bar top
-                            c.beginPath();
-                            c.setLineDash([2, 3]);
-                            c.strokeStyle  = color;
-                            c.lineWidth    = 1;
-                            c.globalAlpha  = 0.38;
-                            c.moveTo(barX, pillY + pillH + 2);
-                            c.lineTo(barX, barTop - 4);
-                            c.stroke();
-                            c.setLineDash([]);
-                            c.globalAlpha  = 1;
-
-                            // Glowing dot at bar top
-                            c.shadowColor = glowColor;
-                            c.shadowBlur  = 8;
-                            c.beginPath();
-                            c.arc(barX, barTop, 3.5, 0, Math.PI * 2);
-                            c.fillStyle = color;
-                            c.fill();
-
-                            c.restore();
-                        });
+                datasets: [
+                    {
+                        label: 'Reposição de Estoque',
+                        data: monthlyData.map(d => d.reposicao),
+                        backgroundColor: 'rgba(99, 102, 241, 0.85)',
+                        borderColor: '#6366f1',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                        stack: 'stack1'
+                    },
+                    {
+                        label: 'Venda Casada',
+                        data: monthlyData.map(d => d.vendaCasada),
+                        backgroundColor: 'rgba(16, 185, 129, 0.85)',
+                        borderColor: '#10b981',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                        stack: 'stack1'
+                    },
+                    {
+                        label: 'Outros',
+                        data: monthlyData.map(d => Math.max(0, d.total - d.reposicao - d.vendaCasada)),
+                        backgroundColor: 'rgba(148, 163, 184, 0.3)',
+                        borderColor: 'rgba(148, 163, 184, 0.5)',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                        stack: 'stack1'
                     }
-                }
-            ],
+                ]
+            },
+            plugins: [ChartDataLabels],
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                layout,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: { color: '#e2e8f0', font: { family: 'Outfit', size: 11 } }
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        titleColor: '#6366f1',
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                const val = context.raw;
+                                const total = context.chart.data.datasets.reduce((acc, ds) => acc + ds.data[context.dataIndex], 0);
+                                const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                                return `${context.dataset.label}: ${formatCurrency(val)} (${pct}%)`;
+                            },
+                            footer: (items) => {
+                                const total = items.reduce((acc, it) => acc + it.raw, 0);
+                                return `TOTAL: ${formatCurrency(total)}`;
+                            }
+                        }
+                    },
+                    datalabels: {
+                        display: (context) => {
+                            const val = context.dataset.data[context.dataIndex];
+                            const total = context.chart.data.datasets.reduce((acc, ds) => acc + (ds.data[context.dataIndex] || 0), 0);
+                            return total > 0 && (val / total) > 0.15; // Only show if > 15% to avoid clutter
+                        },
+                        color: '#fff',
+                        font: { weight: 'bold', size: 10 },
+                        formatter: (value, context) => {
+                            const total = context.chart.data.datasets.reduce((acc, ds) => acc + (ds.data[context.dataIndex] || 0), 0);
+                            const pct = total > 0 ? ((value / total) * 100).toFixed(0) : 0;
+                            return pct + '%';
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: true,
+                        grid: { display: false },
+                        ticks: { color: '#94a3b8' }
+                    },
+                    y: {
+                        stacked: true,
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { 
+                            color: '#94a3b8',
+                            callback: (value) => formatCurrency(value)
+                        }
+                    }
+                },
                 onClick: (e, elements) => {
                     if (elements.length > 0) {
                         const index = elements[0].index;
@@ -1092,61 +1204,26 @@ document.addEventListener('DOMContentLoaded', () => {
                         selectedMonth = 'all';
                         updateDashboard();
                     }
-                },
-                onHover: (event, chartElement) => {
-                    event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
-                },
-                plugins: {
-                    legend: { display: false },
-                    datalabels: {
-                        // Value sits inside the bar (near top), leaving space above for the badge
-                        anchor: 'end',
-                        align: 'bottom',
-                        color: 'rgba(255,255,255,0.93)',
-                        offset: 6,
-                        font: { weight: '700', size: 11, family: 'Outfit' },
-                        formatter: (value) => formatCurrency(value),
-                        display: (context) => context.dataset.data[context.dataIndex] > 0,
-                        textShadowBlur: 6,
-                        textShadowColor: 'rgba(0,0,0,0.6)'
-                    },
-                    tooltip: {
-                        backgroundColor: 'rgba(10, 16, 35, 0.96)',
-                        borderColor: 'rgba(99,102,241,0.3)',
-                        borderWidth: 1,
-                        padding: 14,
-                        cornerRadius: 10,
-                        callbacks: {
-                            label: (context) => {
-                                const v = variations[context.dataIndex];
-                                const total = ` Total: ${formatCurrency(context.raw)}`;
-                                if (v === null || v === undefined) return total;
-                                const arrow = v >= 0 ? '↑' : '↓';
-                                const varStr = ` ${arrow} ${Math.abs(v).toFixed(1)}% vs. mês anterior`;
-                                return [total, varStr];
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        grid: { display: false },
-                        ticks: {
-                            color: '#e2e8f0',
-                            font: { family: 'Outfit', size: 12 }
-                        }
-                    },
-                    y: {
-                        grid: { color: 'rgba(255,255,255,0.05)' },
-                        beginAtZero: true,
-                        ticks: {
-                            color: '#94a3b8',
-                            callback: (value) => formatCurrency(value)
-                        }
-                    }
                 }
             }
         });
+    }
+
+    function renderCardTrend(elementId, current, previous) {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+        
+        if (!previous || previous === 0) {
+            el.style.display = 'none';
+            return;
+        }
+
+        el.style.display = 'inline-block';
+        const variation = ((current - previous) / previous) * 100;
+        const text = variation > 0 ? `↑ +${variation.toFixed(1)}%` : `↓ ${variation.toFixed(1)}%`;
+        
+        el.textContent = text;
+        el.className = 'card-trend-badge ' + (variation > 0 ? 'up' : 'down');
     }
 
     function exportToExcel() {
