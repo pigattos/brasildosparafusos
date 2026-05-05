@@ -12,11 +12,17 @@ document.addEventListener('DOMContentLoaded', () => {
     
     let nfData = [];
     let selectedMonth = 'all'; // Formato: YYYY-MM ou 'all'
-    let suppliersChart = null;
-    let volumeChart = null;
-    let averageChart = null;
-    let dailyChart = null;
-    let monthlyChart = null;
+    let selectedSupplier = null;
+    let selectedGroup = null;
+    
+    // Chart instances
+    let charts = {
+        suppliers: null,
+        volume: null,
+        daily: null,
+        monthly: null
+    };
+    
     let showAllSuppliers = false; // State for Top 10 vs All toggle
 
     // --- Event Listeners ---
@@ -243,15 +249,17 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateDashboard() {
         if (!nfData || nfData.length === 0) return;
         
-        const searchTerm = nfSearch.value.toLowerCase();
-        const filteredBySearch = nfData.filter(item => 
-            item.description.toLowerCase().includes(searchTerm) ||
-            item.code.toLowerCase().includes(searchTerm) ||
-            item.group.toLowerCase().includes(searchTerm) ||
-            item.supplier.toLowerCase().includes(searchTerm) ||
-            item.invoice.toLowerCase().includes(searchTerm)
-        );
         const filtered = filterByPeriodAndSearch();
+        const filteredBySearch = nfData.filter(item => {
+            const searchTerm = nfSearch.value.toLowerCase();
+            return (
+                item.description.toLowerCase().includes(searchTerm) ||
+                item.code.toLowerCase().includes(searchTerm) ||
+                item.group.toLowerCase().includes(searchTerm) ||
+                item.supplier.toLowerCase().includes(searchTerm) ||
+                item.invoice.toLowerCase().includes(searchTerm)
+            );
+        });
         
         // 1. Stats
         const totalValue = filtered.reduce((acc, item) => acc + item.value, 0);
@@ -361,12 +369,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 item.supplier.toLowerCase().includes(searchTerm) ||
                 item.invoice.toLowerCase().includes(searchTerm);
             
-            // Extrair YYYY-MM do item
             const d = item.rawDate;
             const itemMonth = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`;
             
             const matchesPeriod = selectedMonth === 'all' || itemMonth === selectedMonth;
-            return matchesSearch && matchesPeriod;
+            const matchesSupplier = !selectedSupplier || item.supplier === selectedSupplier;
+            const matchesGroup = !selectedGroup || item.group === selectedGroup;
+            
+            return matchesSearch && matchesPeriod && matchesSupplier && matchesGroup;
         });
     }
 
@@ -571,44 +581,72 @@ document.addEventListener('DOMContentLoaded', () => {
         );
     }
 
-    function renderSuppliersChart(items, currentLookup, prevLookup) {
-        const ctx = document.getElementById('suppliers-chart').getContext('2d');
-        if (suppliersChart) suppliersChart.destroy();
+    function getChartGradients(ctx) {
+        const cobalt = ctx.createLinearGradient(0, 0, 400, 0);
+        cobalt.addColorStop(0, 'rgba(37, 99, 235, 0.9)');
+        cobalt.addColorStop(1, 'rgba(29, 78, 216, 0.95)');
 
-        suppliersChart = new Chart(ctx, {
+        const emerald = ctx.createLinearGradient(0, 0, 400, 0);
+        emerald.addColorStop(0, 'rgba(16, 185, 129, 0.9)');
+        emerald.addColorStop(1, 'rgba(5, 150, 105, 0.95)');
+
+        const slate = ctx.createLinearGradient(0, 0, 400, 0);
+        slate.addColorStop(0, 'rgba(148, 163, 184, 0.2)');
+        slate.addColorStop(1, 'rgba(100, 116, 139, 0.25)');
+
+        return { cobalt, emerald, slate };
+    }
+
+    function renderSuppliersChart(items, currentLookup, prevLookup) {
+        const canvas = document.getElementById('suppliers-chart');
+        const ctx = canvas.getContext('2d');
+        const grads = getChartGradients(ctx);
+
+        const chartData = {
+            labels: items.map(d => d.supplier),
+            datasets: [
+                {
+                    label: 'Reposição de Estoque',
+                    data: items.map(d => d.reposicao),
+                    backgroundColor: grads.cobalt,
+                    borderColor: 'rgba(59, 130, 246, 0.5)',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    stack: 'stack1',
+                    hoverBackgroundColor: 'rgba(37, 99, 235, 1)'
+                },
+                {
+                    label: 'Venda Casada',
+                    data: items.map(d => d.vendaCasada),
+                    backgroundColor: grads.emerald,
+                    borderColor: 'rgba(16, 185, 129, 0.5)',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    stack: 'stack1',
+                    hoverBackgroundColor: 'rgba(16, 185, 129, 1)'
+                },
+                {
+                    label: 'Outros',
+                    data: items.map(d => Math.max(0, d.total - d.reposicao - d.vendaCasada)),
+                    backgroundColor: grads.slate,
+                    borderColor: 'rgba(148, 163, 184, 0.2)',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    stack: 'stack1'
+                }
+            ]
+        };
+
+        if (charts.suppliers) {
+            charts.suppliers.data = chartData;
+            charts.suppliers.update('none'); // Update without animation for smoother filtering if many updates
+            charts.suppliers.update(); // Then animate
+            return;
+        }
+
+        charts.suppliers = new Chart(ctx, {
             type: 'bar',
-            data: {
-                labels: items.map(d => d.supplier),
-                datasets: [
-                    {
-                        label: 'Reposição de Estoque',
-                        data: items.map(d => d.reposicao),
-                        backgroundColor: 'rgba(99, 102, 241, 0.85)',
-                        borderColor: '#6366f1',
-                        borderWidth: 1,
-                        borderRadius: 4,
-                        stack: 'stack1'
-                    },
-                    {
-                        label: 'Venda Casada',
-                        data: items.map(d => d.vendaCasada),
-                        backgroundColor: 'rgba(16, 185, 129, 0.85)',
-                        borderColor: '#10b981',
-                        borderWidth: 1,
-                        borderRadius: 4,
-                        stack: 'stack1'
-                    },
-                    {
-                        label: 'Outros',
-                        data: items.map(d => Math.max(0, d.total - d.reposicao - d.vendaCasada)),
-                        backgroundColor: 'rgba(148, 163, 184, 0.3)',
-                        borderColor: 'rgba(148, 163, 184, 0.5)',
-                        borderWidth: 1,
-                        borderRadius: 4,
-                        stack: 'stack1'
-                    }
-                ]
-            },
+            data: chartData,
             plugins: [
                 ChartDataLabels,
                 makeHorizPercentPlugin(items, 'supplier', currentLookup, prevLookup, '#e2e8f0', 'rgba(99,102,241,0.1)', 'rgba(99,102,241,0.3)', 'rgba(99,102,241,0.15)')
@@ -617,18 +655,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: { duration: 1000, easing: 'easeOutQuart' },
                 layout: { padding: { right: 120, top: 10 } },
+                onClick: (e, elements) => {
+                    if (elements.length > 0) {
+                        const index = elements[0].index;
+                        const supplier = items[index].supplier;
+                        selectedSupplier = selectedSupplier === supplier ? null : supplier;
+                        updateDashboard();
+                    } else {
+                        selectedSupplier = null;
+                        updateDashboard();
+                    }
+                },
+                onHover: (event, chartElement) => {
+                    event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
+                },
                 plugins: {
                     legend: {
                         display: true,
                         position: 'top',
-                        labels: { color: '#e2e8f0', font: { family: 'Outfit', size: 10 } }
+                        labels: { color: '#e2e8f0', font: { family: 'Outfit', size: 10 }, usePointStyle: true }
                     },
                     datalabels: {
                         display: (context) => {
                             const val = context.dataset.data[context.dataIndex];
                             const total = context.chart.data.datasets.reduce((acc, ds) => acc + (ds.data[context.dataIndex] || 0), 0);
-                            return total > 0 && (val / total) > 0.2; // Mostra % se for > 20% do fornecedor
+                            return total > 0 && (val / total) > 0.25; 
                         },
                         color: '#fff',
                         font: { weight: 'bold', size: 9 },
@@ -642,6 +695,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         mode: 'index',
                         intersect: false,
                         backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderWidth: 1,
                         padding: 12,
                         callbacks: {
                             label: function(context) {
@@ -667,8 +722,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         stacked: true,
                         grid: { display: false },
                         ticks: { 
-                            color: '#e2e8f0', 
-                            font: { family: 'Outfit', size: 10 },
+                            color: (context) => context.tick.label === selectedSupplier ? '#fff' : '#e2e8f0',
+                            font: (context) => ({ 
+                                family: 'Outfit', 
+                                size: 10,
+                                weight: context.tick.label === selectedSupplier ? 'bold' : 'normal'
+                            }),
                             callback: function(value) {
                                 const label = this.getLabelForValue(value);
                                 return label.length > 15 ? label.substr(0, 15) + '...' : label;
@@ -762,46 +821,53 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
     function renderVolumeChart(topData, currentLookup, prevLookup) {
-        const ctx = document.getElementById('volume-chart').getContext('2d');
-        if (volumeChart) volumeChart.destroy();
+        const canvas = document.getElementById('volume-chart');
+        const ctx = canvas.getContext('2d');
+        const grads = getChartGradients(ctx);
 
-        // Ordenar por valor (total) para este gráfico
         const volumeData = [...topData].sort((a, b) => b.total - a.total);
+        const chartData = {
+            labels: volumeData.map(d => d.group),
+            datasets: [
+                {
+                    label: 'Reposição de Estoque',
+                    data: volumeData.map(d => d.reposicao),
+                    backgroundColor: grads.cobalt,
+                    borderColor: 'rgba(59, 130, 246, 0.5)',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    stack: 'stack1'
+                },
+                {
+                    label: 'Venda Casada',
+                    data: volumeData.map(d => d.vendaCasada),
+                    backgroundColor: grads.emerald,
+                    borderColor: 'rgba(16, 185, 129, 0.5)',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    stack: 'stack1'
+                },
+                {
+                    label: 'Outros',
+                    data: volumeData.map(d => Math.max(0, d.total - d.reposicao - d.vendaCasada)),
+                    backgroundColor: grads.slate,
+                    borderColor: 'rgba(148, 163, 184, 0.2)',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    stack: 'stack1'
+                }
+            ]
+        };
 
-        volumeChart = new Chart(ctx, {
+        if (charts.volume) {
+            charts.volume.data = chartData;
+            charts.volume.update();
+            return;
+        }
+
+        charts.volume = new Chart(ctx, {
             type: 'bar',
-            data: {
-                labels: volumeData.map(d => d.group),
-                datasets: [
-                    {
-                        label: 'Reposição de Estoque',
-                        data: volumeData.map(d => d.reposicao),
-                        backgroundColor: 'rgba(99, 102, 241, 0.85)',
-                        borderColor: '#6366f1',
-                        borderWidth: 1,
-                        borderRadius: 4,
-                        stack: 'stack1'
-                    },
-                    {
-                        label: 'Venda Casada',
-                        data: volumeData.map(d => d.vendaCasada),
-                        backgroundColor: 'rgba(16, 185, 129, 0.85)',
-                        borderColor: '#10b981',
-                        borderWidth: 1,
-                        borderRadius: 4,
-                        stack: 'stack1'
-                    },
-                    {
-                        label: 'Outros',
-                        data: volumeData.map(d => Math.max(0, d.total - d.reposicao - d.vendaCasada)),
-                        backgroundColor: 'rgba(148, 163, 184, 0.3)',
-                        borderColor: 'rgba(148, 163, 184, 0.5)',
-                        borderWidth: 1,
-                        borderRadius: 4,
-                        stack: 'stack1'
-                    }
-                ]
-            },
+            data: chartData,
             plugins: [
                 ChartDataLabels,
                 makeHorizPercentPlugin(volumeData, 'group', currentLookup, prevLookup, '#e2e8f0', 'rgba(99,102,241,0.1)', 'rgba(99,102,241,0.3)', 'rgba(99,102,241,0.15)')
@@ -810,18 +876,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: { duration: 1000, easing: 'easeOutQuart' },
                 layout: { padding: { right: 120, top: 10 } },
+                onClick: (e, elements) => {
+                    if (elements.length > 0) {
+                        const index = elements[0].index;
+                        const group = volumeData[index].group;
+                        selectedGroup = selectedGroup === group ? null : group;
+                        updateDashboard();
+                    } else {
+                        selectedGroup = null;
+                        updateDashboard();
+                    }
+                },
+                onHover: (event, chartElement) => {
+                    event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
+                },
                 plugins: {
                     legend: {
                         display: true,
                         position: 'top',
-                        labels: { color: '#e2e8f0', font: { family: 'Outfit', size: 10 } }
+                        labels: { color: '#e2e8f0', font: { family: 'Outfit', size: 10 }, usePointStyle: true }
                     },
                     datalabels: {
                         display: (context) => {
                             const val = context.dataset.data[context.dataIndex];
                             const total = context.chart.data.datasets.reduce((acc, ds) => acc + (ds.data[context.dataIndex] || 0), 0);
-                            return total > 0 && (val / total) > 0.15; // Mostra % se for > 15% do grupo
+                            return total > 0 && (val / total) > 0.15; 
                         },
                         color: '#fff',
                         font: { weight: 'bold', size: 9 },
@@ -835,6 +916,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         mode: 'index',
                         intersect: false,
                         backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderWidth: 1,
                         padding: 12,
                         callbacks: {
                             label: function(context) {
@@ -853,7 +936,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 scales: {
                     x: { 
                         stacked: true,
-                        display: true,
                         grid: { color: 'rgba(255,255,255,0.05)' }, 
                         ticks: { color: '#94a3b8', callback: (v) => formatCurrency(v) }
                     },
@@ -861,8 +943,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         stacked: true,
                         grid: { display: false }, 
                         ticks: { 
-                            color: '#e2e8f0', 
-                            font: { size: 10 },
+                            color: (context) => context.tick.label === selectedGroup ? '#fff' : '#e2e8f0',
+                            font: (context) => ({ 
+                                size: 10,
+                                weight: context.tick.label === selectedGroup ? 'bold' : 'normal'
+                            }),
                             callback: function(value) {
                                 const label = this.getLabelForValue(value);
                                 return label.length > 20 ? label.substr(0, 20) + '...' : label;
@@ -876,48 +961,54 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     function renderDailyChart(dailyData) {
-        const ctx = document.getElementById('daily-chart').getContext('2d');
+        const canvas = document.getElementById('daily-chart');
+        const ctx = canvas.getContext('2d');
         
-        if (dailyChart) dailyChart.destroy();
-
         const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-        gradient.addColorStop(0, 'rgba(16, 185, 129, 0.3)');
+        gradient.addColorStop(0, 'rgba(16, 185, 129, 0.25)');
         gradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
 
-        dailyChart = new Chart(ctx, {
+        const chartData = {
+            labels: dailyData.map(d => d.date),
+            datasets: [{
+                label: 'Valor Total Recebido (R$)',
+                data: dailyData.map(d => d.total),
+                borderColor: '#10b981',
+                borderWidth: 3,
+                backgroundColor: gradient,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 4,
+                pointHoverRadius: 8,
+                pointBackgroundColor: '#10b981',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2
+            }]
+        };
+
+        if (charts.daily) {
+            charts.daily.data = chartData;
+            charts.daily.update();
+            return;
+        }
+
+        charts.daily = new Chart(ctx, {
             type: 'line',
-            data: {
-                labels: dailyData.map(d => d.date),
-                datasets: [{
-                    label: 'Valor Total Recebido (R$)',
-                    data: dailyData.map(d => d.total),
-                    borderColor: '#10b981',
-                    borderWidth: 3,
-                    backgroundColor: gradient,
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 6,
-                    pointHoverRadius: 9,
-                    pointBackgroundColor: '#10b981',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2
-                }]
-            },
+            data: chartData,
             plugins: [ChartDataLabels],
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: { duration: 1200, easing: 'easeInOutQuart' },
                 onClick: (e, elements) => {
                     if (elements.length > 0) {
                         const index = elements[0].index;
                         const date = dailyData[index].date;
-                        nfSearch.value = date; // Filtra pela data (formatada DD/MM/YYYY)
+                        nfSearch.value = nfSearch.value === date ? "" : date;
                         updateDashboard();
                     } else {
-                        if (nfSearch.value !== "") {
-                            nfSearch.value = "";
-                            updateDashboard();
-                        }
+                        nfSearch.value = "";
+                        updateDashboard();
                     }
                 },
                 onHover: (event, chartElement) => {
@@ -932,10 +1023,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         offset: 4,
                         font: { weight: 'bold', size: 9, family: 'Outfit' },
                         formatter: (value) => formatCurrency(value),
-                        display: 'auto' // Evita sobreposição
+                        display: (context) => context.dataset.data[context.dataIndex] > 0 ? 'auto' : false
                     },
                     tooltip: {
-                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderWidth: 1,
                         padding: 12,
                         cornerRadius: 8,
                         callbacks: {
@@ -947,13 +1040,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 scales: {
                     x: { 
                         grid: { display: false },
-                        ticks: { color: '#94a3b8' }
+                        ticks: { color: '#94a3b8', font: { size: 10 } }
                     },
                     y: { 
                         grid: { color: 'rgba(255,255,255,0.05)' },
                         beginAtZero: true,
                         ticks: { 
                             color: '#94a3b8',
+                            font: { size: 10 },
                             callback: (value) => formatCurrency(value)
                         }
                     }
@@ -1098,58 +1192,69 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderMonthlyChart(monthlyData) {
-        const ctx = document.getElementById('monthly-chart').getContext('2d');
-        if (monthlyChart) monthlyChart.destroy();
+        const canvas = document.getElementById('monthly-chart');
+        const ctx = canvas.getContext('2d');
+        const grads = getChartGradients(ctx);
 
-        monthlyChart = new Chart(ctx, {
+        const chartData = {
+            labels: monthlyData.map(d => d.label),
+            datasets: [
+                {
+                    label: 'Reposição de Estoque',
+                    data: monthlyData.map(d => d.reposicao),
+                    backgroundColor: grads.cobalt,
+                    borderColor: 'rgba(59, 130, 246, 0.5)',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    stack: 'stack1'
+                },
+                {
+                    label: 'Venda Casada',
+                    data: monthlyData.map(d => d.vendaCasada),
+                    backgroundColor: grads.emerald,
+                    borderColor: 'rgba(16, 185, 129, 0.5)',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    stack: 'stack1'
+                },
+                {
+                    label: 'Outros',
+                    data: monthlyData.map(d => Math.max(0, d.total - d.reposicao - d.vendaCasada)),
+                    backgroundColor: grads.slate,
+                    borderColor: 'rgba(148, 163, 184, 0.2)',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    stack: 'stack1'
+                }
+            ]
+        };
+
+        if (charts.monthly) {
+            charts.monthly.data = chartData;
+            charts.monthly.update();
+            return;
+        }
+
+        charts.monthly = new Chart(ctx, {
             type: 'bar',
-            data: {
-                labels: monthlyData.map(d => d.label),
-                datasets: [
-                    {
-                        label: 'Reposição de Estoque',
-                        data: monthlyData.map(d => d.reposicao),
-                        backgroundColor: 'rgba(99, 102, 241, 0.85)',
-                        borderColor: '#6366f1',
-                        borderWidth: 1,
-                        borderRadius: 4,
-                        stack: 'stack1'
-                    },
-                    {
-                        label: 'Venda Casada',
-                        data: monthlyData.map(d => d.vendaCasada),
-                        backgroundColor: 'rgba(16, 185, 129, 0.85)',
-                        borderColor: '#10b981',
-                        borderWidth: 1,
-                        borderRadius: 4,
-                        stack: 'stack1'
-                    },
-                    {
-                        label: 'Outros',
-                        data: monthlyData.map(d => Math.max(0, d.total - d.reposicao - d.vendaCasada)),
-                        backgroundColor: 'rgba(148, 163, 184, 0.3)',
-                        borderColor: 'rgba(148, 163, 184, 0.5)',
-                        borderWidth: 1,
-                        borderRadius: 4,
-                        stack: 'stack1'
-                    }
-                ]
-            },
+            data: chartData,
             plugins: [ChartDataLabels],
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: { duration: 1000, easing: 'easeOutQuart' },
                 plugins: {
                     legend: {
                         display: true,
                         position: 'top',
-                        labels: { color: '#e2e8f0', font: { family: 'Outfit', size: 11 } }
+                        labels: { color: '#e2e8f0', font: { family: 'Outfit', size: 11 }, usePointStyle: true }
                     },
                     tooltip: {
                         mode: 'index',
                         intersect: false,
                         backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                        titleColor: '#6366f1',
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderWidth: 1,
                         padding: 12,
                         callbacks: {
                             label: function(context) {
@@ -1168,7 +1273,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         display: (context) => {
                             const val = context.dataset.data[context.dataIndex];
                             const total = context.chart.data.datasets.reduce((acc, ds) => acc + (ds.data[context.dataIndex] || 0), 0);
-                            return total > 0 && (val / total) > 0.15; // Only show if > 15% to avoid clutter
+                            return total > 0 && (val / total) > 0.2; 
                         },
                         color: '#fff',
                         font: { weight: 'bold', size: 10 },
@@ -1183,13 +1288,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     x: {
                         stacked: true,
                         grid: { display: false },
-                        ticks: { color: '#94a3b8' }
+                        ticks: { 
+                            color: (context) => {
+                                const label = monthlyData[context.index]?.key;
+                                return label === selectedMonth ? '#fff' : '#94a3b8';
+                            },
+                            font: (context) => {
+                                const label = monthlyData[context.index]?.key;
+                                return { weight: label === selectedMonth ? 'bold' : 'normal' };
+                            }
+                        }
                     },
                     y: {
                         stacked: true,
                         grid: { color: 'rgba(255,255,255,0.05)' },
                         ticks: { 
                             color: '#94a3b8',
+                            font: { size: 10 },
                             callback: (value) => formatCurrency(value)
                         }
                     }
@@ -1204,6 +1319,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         selectedMonth = 'all';
                         updateDashboard();
                     }
+                },
+                onHover: (event, chartElement) => {
+                    event.native.target.style.cursor = chartElement[0] ? 'pointer' : 'default';
                 }
             }
         });
