@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("Gestor de Estoque v2.1 - Filtro de meses ativos (até 04/2026)");
+    console.log("Gestor de Estoque v2.2 - Sincronização Dinâmica Ativa");
     const fileUpload = document.getElementById('file-upload');
     const dropZone = document.getElementById('drop-zone');
     const statsSection = document.getElementById('stats-section');
@@ -58,6 +58,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let buyerMap = JSON.parse(localStorage.getItem('buyerMap') || '{}');
     console.log(`Mapeamento de compradores carregado: ${Object.keys(buyerMap).length} códigos.`);
+
+    let leadtimeSalesHistory = {};
+
+    /**
+     * Busca histórico de vendas oficial do Leadtime via Bridge
+     */
+    async function fetchSalesHistory() {
+        try {
+            console.log("Tentando buscar histórico do Leadtime...");
+            const response = await fetch(`http://localhost:3000/sales-history?t=${Date.now()}`);
+            const result = await response.json();
+            if (result.success) {
+                leadtimeSalesHistory = result.data;
+                console.log(`✅ Sucesso! ${Object.keys(leadtimeSalesHistory).length} itens carregados do Leadtime.`);
+            }
+        } catch (e) {
+            console.warn("⚠️ Não foi possível conectar ao bridge para buscar histórico do Leadtime. Usando dados da planilha local.");
+        }
+    }
+
+    fetchSalesHistory();
 
     // --- Core Logic ---
 
@@ -174,19 +195,18 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const allKeys = Array.from(allKeysSet);
 
-        // Identify Month Columns (format MM/YYYY) - Filtered to exclude future months
+        // Identify Month Columns (format MM/YYYY) - Dynamic Sorting
+        // Filtrar apenas o que realmente parece data MM/YYYY e ignorar lixo ou meses futuros
         const monthCols = allKeys.filter(k => {
             if (!/^\d{2}\/\d{4}$/.test(k)) return false;
-            const [m, y] = k.split('/').map(Number);
-            // Limit to months <= 04/2026 (requested range)
-            const monthVal = y * 12 + m;
-            const limitVal = 2026 * 12 + 4;
-            return monthVal <= limitVal;
+            const [mon, yr] = k.split('/').map(Number);
+            // Excluir estritamente qualquer mês após 05/2026 conforme solicitado
+            return (yr < 2026) || (yr === 2026 && mon <= 5);
         }).sort((a, b) => {
-            const [mA, yA] = a.split('/');
-            const [mB, yB] = b.split('/');
-            return (yA + mA).localeCompare(yB + mB);
-        }).slice(-6); // Ensure only the last 6 months are considered
+            const [mA, yA] = a.split('/').map(Number);
+            const [mB, yB] = b.split('/').map(Number);
+            return (yA * 12 + mA) - (yB * 12 + mB);
+        });
         
         console.log(`Dados Brutos: ${rawData.length} linhas | Colunas Detectadas: ${allKeys.length}`);
         console.log('Meses identificados:', monthCols);
@@ -239,15 +259,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
 
-            const medVenda = recData.count > 0 ? (vendas / recData.count) : 0;
+            const medVendaFromHistory = (recData.count > 0 ? (vendas / recData.count) : 0);
+            const recorrencia = recData.percent;
+            
+            // --- OVERRIDE WITH LEADTIME DATA IF AVAILABLE ---
+            let finalHistorico = monthCols.map(col => Math.max(0, parseNum(row[col])));
+            let finalMonthLabels = monthCols;
+            let finalVendas = vendas;
+            let finalRecorrencia = recorrencia;
+            let finalMedVenda = medVendaFromHistory;
+
+            if (produto !== 'N/A' && leadtimeSalesHistory[produto]) {
+                const lt = leadtimeSalesHistory[produto];
+                finalHistorico = lt.history;
+                finalMonthLabels = lt.labels;
+                finalVendas = lt.history.reduce((a, b) => a + b, 0);
+                
+                const activeMonths = lt.history.filter(v => v > 0).length;
+                finalRecorrencia = lt.history.length > 0 ? (activeMonths / lt.history.length) * 100 : 0;
+                finalMedVenda = activeMonths > 0 ? (finalVendas / activeMonths) : 0;
+                
+                // console.log(`   - Usando histórico Leadtime para ${produto}`);
+            }
+
+            const medVenda = finalMedVenda;
             
             const estoque = parseNum(estoqueObj.value);
             const encomendas = parseNum(encomObj.value);
             const custo = parseNum(custoObj.value);
             
-            const recorrencia = recData.percent;
+            const currentRecorrencia = finalRecorrencia;
             
-            const mappingInfo = `Linha: ${index + 2} | Cód: "${prodObj.col}" | Estoque: "${estoqueObj.col}" | Encomendas: "${encomObj.col}"`;
+            const isFromLeadtime = (produto !== 'N/A' && leadtimeSalesHistory[produto]);
+            const mappingInfo = `Linha: ${index + 2} | Cód: "${prodObj.col}" | Estoque: "${estoqueObj.col}" | Encomendas: "${encomObj.col}"${isFromLeadtime ? ' | Histórico: Leadtime 📊' : ''}`;
             
             // Logic for risk classification (Refactored for maximum clarity)
             let emRisco = false;
@@ -256,7 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let situacao = 'seguro';
 
             // Only evaluate for risks if recurrence is > 33%
-            if (recorrencia > 33) {
+            if (currentRecorrencia > 33) {
                 const totalDisponivel = estoque + encomendas;
                 
                 if (medVenda > totalDisponivel) {
@@ -272,9 +316,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             let tendencia = 'stable';
-            if (monthCols.length >= 2) {
-                const lastVal = parseNum(row[monthCols[monthCols.length - 1]]);
-                const prevVal = parseNum(row[monthCols[monthCols.length - 2]]);
+            if (finalHistorico.length >= 2) {
+                const lastVal = finalHistorico[finalHistorico.length - 1];
+                const prevVal = finalHistorico[finalHistorico.length - 2];
                 if (lastVal > prevVal) tendencia = 'up';
                 else if (lastVal < prevVal) tendencia = 'down';
             }
@@ -288,14 +332,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 fornecedor: fornecObj.value || 'N/D',
                 estoque,
                 encomendas,
-                vendas,
+                vendas: finalVendas,
                 medVenda: medVenda.toFixed(3),
                 tendencia,
                 custoRaw: custo,
                 custo: custo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-                recorrencia: recorrencia.toFixed(0),
-                historico: monthCols.map(col => Math.max(0, parseNum(row[col]))), // Ensure non-negative history for chart
-                monthLabels: monthCols,
+                recorrencia: currentRecorrencia.toFixed(0),
+                historico: finalHistorico, // Ensure non-negative history for chart
+                monthLabels: finalMonthLabels,
                 situacao,
                 emRisco,
                 emAtencao,

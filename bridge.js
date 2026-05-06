@@ -6,6 +6,7 @@ const XLSX = require('xlsx');
 const PORT = 3000;
 const SOURCE_DIR = "C:\\Users\\Cassyano\\OneDrive - Brasil do Parafusos\\Comprasbrasil - Compras\\Base entrada de itens";
 const OUTPUT_FILE = "data-entradas.js";
+const LEADTIME_FILE = "C:\\Users\\Cassyano\\OneDrive - Brasil do Parafusos\\Compras\\Relatório Lead time\\Base Leadtime.xlsx";
 
 /**
  * Normaliza nomes de colunas para busca flexível
@@ -131,6 +132,112 @@ const server = http.createServer((req, res) => {
             }));
         } catch (e) {
             console.error("ERRO NA SINCRONIZAÇÃO:", e.message);
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: e.message }));
+        }
+    } else if (req.url === '/sales-history') {
+        console.log("Recebido pedido de histórico de vendas (Leadtime)...");
+        try {
+            if (!fs.existsSync(LEADTIME_FILE)) {
+                throw new Error(`Arquivo Leadtime não encontrado: ${LEADTIME_FILE}`);
+            }
+
+            const workbook = XLSX.readFile(LEADTIME_FILE);
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            
+            // Usar header: 1 para ler como array de arrays e identificar o cabeçalho corretamente
+            const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+            if (rows.length === 0) {
+                throw new Error("Arquivo Leadtime vazio.");
+            }
+
+            // Identificar a linha de cabeçalho e as colunas de meses
+            let headerRow = rows[0];
+            // Se a primeira linha não parecer ter meses, procurar nas próximas 5
+            for (let i = 0; i < Math.min(rows.length, 5); i++) {
+                if (rows[i].some(cell => typeof cell === 'string' && /^\d{2}\/\d{4}$/.test(cell))) {
+                    headerRow = rows[i];
+                    break;
+                }
+            }
+
+            const monthCols = headerRow
+                .map(k => {
+                    if (k instanceof Date) {
+                        const m = (k.getMonth() + 1).toString().padStart(2, '0');
+                        const y = k.getFullYear();
+                        return `${m}/${y}`;
+                    }
+                    return String(k || '');
+                })
+                .filter(k => /^\d{2}\/\d{4}$/.test(k))
+                .filter(m => {
+                    const [mon, yr] = m.split('/').map(Number);
+                    // EXCLUSÃO TOTAL: Somente até Maio/2026
+                    return (yr < 2026) || (yr === 2026 && mon <= 5);
+                })
+                .sort((a, b) => {
+                    const [mA, yA] = a.split('/').map(Number);
+                    const [mB, yB] = b.split('/').map(Number);
+                    return (yA * 12 + mA) - (yB * 12 + mB);
+                });
+
+            // Remover duplicatas caso o map tenha gerado labels iguais
+            const uniqueMonthCols = [...new Set(monthCols)];
+
+            console.log("Meses detectados no Leadtime (Final):", uniqueMonthCols);
+
+            // Mapear índices das colunas de meses originais para os labels normalizados
+            const monthMap = [];
+            headerRow.forEach((val, idx) => {
+                let label = "";
+                if (val instanceof Date) {
+                    const m = (val.getMonth() + 1).toString().padStart(2, '0');
+                    const y = val.getFullYear();
+                    label = `${m}/${y}`;
+                } else {
+                    label = String(val || '');
+                }
+                
+                if (uniqueMonthCols.includes(label)) {
+                    monthMap.push({ index: idx, label: label });
+                }
+            });
+
+            // Ordenar monthMap para seguir uniqueMonthCols
+            monthMap.sort((a, b) => {
+                const [mA, yA] = a.label.split('/').map(Number);
+                const [mB, yB] = b.label.split('/').map(Number);
+                return (yA * 12 + mA) - (yB * 12 + mB);
+            });
+
+            const salesMap = {};
+            const dataRows = rows.slice(rows.indexOf(headerRow) + 1);
+            const prodIdx = headerRow.findIndex(h => h && h.toString().toLowerCase().includes('produto'));
+            
+            dataRows.forEach(row => {
+                const code = String(row[prodIdx] || '').trim();
+                if (!code || code === 'undefined') return;
+
+                const history = monthMap.map(m => parseFloat(row[m.index]) || 0);
+                salesMap[code] = {
+                    history: history,
+                    labels: monthMap.map(m => m.label)
+                };
+            });
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ 
+                success: true, 
+                count: Object.keys(salesMap).length,
+                data: salesMap 
+            }));
+            console.log(`Histórico de vendas enviado: ${Object.keys(salesMap).length} itens.`);
+
+        } catch (e) {
+            console.error("ERRO AO LER HISTÓRICO DE VENDAS:", e.message);
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: false, error: e.message }));
         }
