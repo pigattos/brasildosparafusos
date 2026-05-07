@@ -445,13 +445,13 @@ thead {
 
 th {
     display: table-cell;
-    padding: 1rem;
-    font-size: 0.75rem;
+    padding: 0.75rem 0.5rem;
+    font-size: 0.7rem;
     font-weight: 700;
     text-transform: uppercase;
-    color: var(--primary); /* Highlight color for headers */
+    color: var(--primary);
     border-bottom: 2px solid var(--border-color);
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
     background: rgba(0, 0, 0, 0.4);
     text-align: left;
 }
@@ -468,9 +468,9 @@ th {
 }
 
 td {
-    padding: 0.75rem 1rem;
+    padding: 0.6rem 0.5rem;
     border-bottom: 1px solid var(--border-color);
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     vertical-align: middle;
 }
 
@@ -488,10 +488,18 @@ td {
 
 .cell-value {
     display: block;
+    white-space: nowrap;
 }
 
+/* Colunas específicas */
+th:nth-child(1), td:nth-child(1) { width: 70px; } /* Produto */
+th:nth-child(3), td:nth-child(3) { width: 45px; text-align: center; } /* UN */
+th:nth-child(5), td:nth-child(5) { width: 90px; } /* Comprador */
+th:nth-child(6), td:nth-child(6) { width: 75px; text-align: center; } /* Estoque */
+th:nth-child(10), td:nth-child(10) { width: 115px; text-align: center; } /* Estado */
+
 .td-desc {
-    max-width: 250px;
+    max-width: 180px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -500,7 +508,7 @@ td {
 }
 
 .td-supplier {
-    max-width: 200px;
+    max-width: 150px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -542,7 +550,7 @@ tr:hover {
     padding: 1.5rem 2rem;
     display: flex;
     flex-wrap: wrap;
-    gap: 3rem;
+    gap: 2rem;
     animation: slideDown 0.3s ease-out;
 }
 
@@ -574,12 +582,15 @@ tr:hover {
 }
 
 .sparkline-detail {
-    flex: 1;
-    min-width: 300px;
+    flex: 2 1 400px;
+    min-width: 280px;
 }
 
 .sparkline-container {
     padding-top: 12px;
+    overflow: visible;
+    padding-right: 20px;
+    width: 100%;
 }
 
 .sparkline-svg {
@@ -612,7 +623,7 @@ tr:hover {
 
 /* Recurrence indicator */
 .rec-bar-container {
-    width: 100px;
+    width: 60px;
     height: 6px;
     background: rgba(255, 255, 255, 0.1);
     border-radius: 3px;

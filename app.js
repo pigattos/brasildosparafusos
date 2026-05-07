@@ -52,6 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeBuyer = 'all';
     let sortRecorrenciaDir = 'none';
     let sortVendasDir = 'none';
+    let sortDiasEstoqueDir = 'none';
     let myChart = null;
     let supplierChart = null;
     let groupChart = null;
@@ -289,6 +290,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const custo = parseNum(custoObj.value);
             
             const currentRecorrencia = finalRecorrencia;
+
+            // Dias úteis de estoque = (estoque / média mensal de venda) × 22
+            // Brasil: ~22 dias úteis por mês (meses com 5 semanas = 21-23, média 22)
+            const DIAS_UTEIS_MES = 22;
+            const diasEstoque = (medVenda > 0) ? Math.round((estoque / medVenda) * DIAS_UTEIS_MES) : null;
             
             const isFromLeadtime = (produto !== 'N/A' && leadtimeSalesHistory[produto]);
             const mappingInfo = `Linha: ${index + 2} | Cód: "${prodObj.col}" | Estoque: "${estoqueObj.col}" | Encomendas: "${encomObj.col}"${isFromLeadtime ? ' | Histórico: Leadtime 📊' : ''}`;
@@ -334,11 +340,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 encomendas,
                 vendas: finalVendas,
                 medVenda: medVenda.toFixed(3),
+                diasEstoque,
                 tendencia,
                 custoRaw: custo,
                 custo: custo.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
                 recorrencia: currentRecorrencia.toFixed(0),
-                historico: finalHistorico, // Ensure non-negative history for chart
+                historico: finalHistorico,
                 monthLabels: finalMonthLabels,
                 situacao,
                 emRisco,
@@ -410,6 +417,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </td>
                 <td style="text-align: center;">
+                    <span class="cell-label">Dias Est.</span>
+                    <div class="cell-value">
+                        ${renderDiasEstoque(item.diasEstoque)}
+                    </div>
+                </td>
+                <td style="text-align: center;">
                     <span class="cell-label">Vendas (6m)</span>
                     <div class="cell-value" style="display: flex; align-items: center; justify-content: center;">
                         <span>${item.vendas}</span>
@@ -437,7 +450,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const detailTr = document.createElement('tr');
             detailTr.className = 'detail-row hidden';
             detailTr.innerHTML = `
-                <td colspan="9">
+                <td colspan="10">
                     <div class="row-details">
                         <div class="detail-item">
                             <span class="detail-label">Encomendas</span>
@@ -449,6 +462,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                 ${item.medVenda}
                                 ${item.tendencia === 'up' ? '<span class="trend-indicator trend-up" style="margin-left:5px;">▲</span>' : 
                                   item.tendencia === 'down' ? '<span class="trend-indicator trend-down" style="margin-left:5px;">▼</span>' : ''}
+                            </span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Cobertura de Estoque</span>
+                            <span class="detail-value">
+                                ${renderDiasEstoque(item.diasEstoque)}
                             </span>
                         </div>
                         <div class="detail-item">
@@ -531,25 +550,50 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- File Handling ---
 
     /**
+     * Renders a colored badge for Dias Úteis de Estoque
+     * Green > 66 d.u. (>3 meses) | Amber 22-66 d.u. (1-3 meses) | Red < 22 d.u. (<1 mês)
+     * Referência: ~22 dias úteis por mês no Brasil
+     */
+    function renderDiasEstoque(dias) {
+        if (dias === null || dias === undefined) {
+            return '<span style="font-size:0.72rem; color:var(--text-muted); background:rgba(255,255,255,0.06); padding:3px 8px; border-radius:6px;">S/Hist</span>';
+        }
+        let color, bg, tooltip;
+        if (dias < 22) {
+            color = '#fb7185'; bg = 'rgba(251,113,133,0.15)';
+            tooltip = 'Cobertura crítica: menos de 1 mês de estoque (dias úteis)';
+        } else if (dias <= 66) {
+            color = '#f59e0b'; bg = 'rgba(245,158,11,0.15)';
+            tooltip = 'Cobertura moderada: 1 a 3 meses de estoque (dias úteis)';
+        } else {
+            color = '#34d399'; bg = 'rgba(52,211,153,0.15)';
+            tooltip = 'Cobertura saudável: mais de 3 meses de estoque (dias úteis)';
+        }
+        const label = dias > 999 ? '999+ d.u.' : `${dias} d.u.`;
+        return `<span style="font-size:0.82rem; font-weight:700; color:${color}; background:${bg}; padding:3px 10px; border-radius:6px; border:1px solid ${color}33;" title="${tooltip}">${label}</span>`;
+    }
+
+    /**
      * Generates an enlarged SVG sparkline for history visualization
      */
     function generateSparkline(history, labels) {
         if (!history || history.length === 0) return '<span style="color:var(--text-muted); font-size:0.7rem;">Sem histórico</span>';
         
-        const width = 700; // Large width to use right space
-        const height = 90; // Balanced height
-        const horizontalPadding = 30;
-        const topPadding = 25; // For value labels
-        const bottomPadding = 20; // For month labels
+        const width = 650;
+        const height = 100;
+        const leftPadding = 30;
+        const rightPadding = 50;  // extra espaço à direita para não cortar o último label
+        const topPadding = 28;
+        const bottomPadding = 22;
         
         const max = Math.max(...history, 5);
-        const drawableWidth = width - (horizontalPadding * 2);
+        const drawableWidth = width - leftPadding - rightPadding;
         const drawableHeight = height - topPadding - bottomPadding;
         
-        const stepX = drawableWidth / (history.length - 1 || 1);
+        const stepX = history.length > 1 ? drawableWidth / (history.length - 1) : 0;
         
         const points = history.map((val, i) => {
-            const x = horizontalPadding + i * stepX;
+            const x = leftPadding + i * stepX;
             const y = height - bottomPadding - (val / max * drawableHeight);
             return { x, y, val, label: labels[i] };
         });
@@ -558,7 +602,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const areaPath = linePath + ` L${points[points.length-1].x},${height - bottomPadding} L${points[0].x},${height - bottomPadding} Z`;
 
         return `
-            <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" style="overflow: visible; display: block;">
+            <svg width="100%" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMinYMin meet" style="overflow: visible; display: block; max-width: ${width}px;">
                 <defs>
                     <linearGradient id="sparklineGradientDetail" x1="0%" y1="0%" x2="0%" y2="100%">
                         <stop offset="0%" style="stop-color:var(--info); stop-opacity:0.4" />
@@ -574,7 +618,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <text x="${p.x}" y="${p.y - 12}" text-anchor="middle" font-size="10" font-weight="bold" fill="white" style="font-family: 'Outfit', sans-serif;">
                         ${p.val}
                     </text>
-                    <text x="${p.x}" y="${height - 2}" text-anchor="middle" font-size="9" fill="var(--text-muted)" style="font-family: 'Outfit', sans-serif;">
+                    <text x="${p.x}" y="${height - 4}" text-anchor="middle" font-size="9" fill="var(--text-muted)" style="font-family: 'Outfit', sans-serif;">
                         ${p.label}
                     </text>
                 `).join('')}
@@ -989,6 +1033,19 @@ document.addEventListener('DOMContentLoaded', () => {
             filteredData.sort((a, b) => parseFloat(b.recorrencia) - parseFloat(a.recorrencia));
         } else if (sortRecorrenciaDir === 'asc') {
             filteredData.sort((a, b) => parseFloat(a.recorrencia) - parseFloat(b.recorrencia));
+        } else if (sortDiasEstoqueDir === 'asc') {
+            // null (S/Hist) sempre vai para o fim
+            filteredData.sort((a, b) => {
+                if (a.diasEstoque === null) return 1;
+                if (b.diasEstoque === null) return -1;
+                return a.diasEstoque - b.diasEstoque;
+            });
+        } else if (sortDiasEstoqueDir === 'desc') {
+            filteredData.sort((a, b) => {
+                if (a.diasEstoque === null) return 1;
+                if (b.diasEstoque === null) return -1;
+                return b.diasEstoque - a.diasEstoque;
+            });
         }
 
         renderTable(filteredData);
@@ -1054,12 +1111,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Sorting functionality
     const sortRecHeader = document.getElementById('sort-recorrencia');
     const sortVendasHeader = document.getElementById('sort-vendas');
+    const sortDiasHeader = document.getElementById('sort-dias-estoque');
+
+    function resetSortIcons(...excludes) {
+        const allHeaders = [sortRecHeader, sortVendasHeader, sortDiasHeader];
+        allHeaders.forEach(h => {
+            if (h && !excludes.includes(h)) h.querySelector('.sort-icon').textContent = '↕️';
+        });
+    }
 
     if (sortRecHeader) {
         sortRecHeader.addEventListener('click', () => {
             sortVendasDir = 'none';
-            if (sortVendasHeader) sortVendasHeader.querySelector('.sort-icon').textContent = '↕️';
-
+            sortDiasEstoqueDir = 'none';
+            resetSortIcons(sortRecHeader);
             if (sortRecorrenciaDir === 'none' || sortRecorrenciaDir === 'asc') {
                 sortRecorrenciaDir = 'desc';
                 sortRecHeader.querySelector('.sort-icon').textContent = '🔽';
@@ -1074,14 +1139,30 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sortVendasHeader) {
         sortVendasHeader.addEventListener('click', () => {
             sortRecorrenciaDir = 'none';
-            if (sortRecHeader) sortRecHeader.querySelector('.sort-icon').textContent = '↕️';
-
+            sortDiasEstoqueDir = 'none';
+            resetSortIcons(sortVendasHeader);
             if (sortVendasDir === 'none' || sortVendasDir === 'asc') {
                 sortVendasDir = 'desc';
                 sortVendasHeader.querySelector('.sort-icon').textContent = '🔽';
             } else {
                 sortVendasDir = 'asc';
                 sortVendasHeader.querySelector('.sort-icon').textContent = '🔼';
+            }
+            applyAllFilters();
+        });
+    }
+
+    if (sortDiasHeader) {
+        sortDiasHeader.addEventListener('click', () => {
+            sortRecorrenciaDir = 'none';
+            sortVendasDir = 'none';
+            resetSortIcons(sortDiasHeader);
+            if (sortDiasEstoqueDir === 'none' || sortDiasEstoqueDir === 'desc') {
+                sortDiasEstoqueDir = 'asc'; // menor dias primeiro = mais crítico
+                sortDiasHeader.querySelector('.sort-icon').textContent = '🔼';
+            } else {
+                sortDiasEstoqueDir = 'desc';
+                sortDiasHeader.querySelector('.sort-icon').textContent = '🔽';
             }
             applyAllFilters();
         });
