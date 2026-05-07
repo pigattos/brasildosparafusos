@@ -20,6 +20,8 @@
     --radius-sm: 6px;
     --transition-fast: 0.2s ease;
     --transition-mid: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --step-1: #3b82f6;
+    --step-2: #3b82f6;
 }
 
 * {
@@ -241,6 +243,102 @@ header {
     user-select: none;
 }
 
+/* Workflow Steps */
+.workflow-steps {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    margin: 0 auto 3rem;
+    max-width: 900px;
+}
+
+@media (max-width: 768px) {
+    .workflow-steps {
+        grid-template-columns: 1fr;
+    }
+}
+
+.step-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    text-align: left;
+    position: relative;
+    transition: all var(--transition-mid);
+    cursor: default;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    flex: 1;
+    max-width: 380px;
+}
+
+.step-card:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--primary);
+    transform: translateY(-5px);
+    box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.5);
+}
+
+.step-number {
+    position: absolute;
+    top: -12px;
+    left: 20px;
+    background: var(--bg-dark);
+    color: white;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    border: 2px solid currentColor;
+}
+
+.step-card.step-1 .step-number { color: var(--step-1); border-color: var(--step-1); }
+.step-card.step-2 .step-number { color: var(--step-2); border-color: var(--step-2); }
+
+.step-icon {
+    font-size: 1.6rem;
+    margin-bottom: 0.1rem;
+    filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.05));
+    opacity: 0.8;
+}
+
+.step-card h3 {
+    font-size: 1.1rem;
+    color: #fff;
+    margin: 0;
+}
+
+.step-card p {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+    margin: 0;
+}
+
+.step-badge-header {
+    font-size: 0.7rem;
+    font-weight: 800;
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    margin-right: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid currentColor;
+}
+
+.step-1-badge { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border-color: rgba(59, 130, 246, 0.5); }
+.step-2-badge { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border-color: rgba(59, 130, 246, 0.5); }
+
 .welcome-content {
     max-width: 1100px;
     width: 100%;
@@ -261,7 +359,7 @@ header {
 }
 
 .main-welcome-logo img {
-    width: 72px;
+    width: 56px;
     opacity: 0.85;
     filter: drop-shadow(0 0 10px rgba(99, 102, 241, 0.2));
     transition: opacity var(--transition-mid), filter var(--transition-mid);
@@ -283,7 +381,7 @@ header {
 }
 
 .welcome-header h2 {
-    font-size: 2.2rem;
+    font-size: 1.8rem;
     margin-bottom: 0.8rem;
     background: linear-gradient(to right, #fff, #9ca3af);
     -webkit-background-clip: text;

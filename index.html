@@ -54,16 +54,18 @@
                     <span class="btn-icon">🏠</span> Voltar ao Menu
                 </a>
 
-                <label for="file-upload" class="btn btn-primary" id="upload-label">
-                    <span class="btn-icon">📁</span> Importar Planilha
-                </label>
-                <input type="file" id="file-upload" accept=".xlsx, .xls, .csv" hidden>
-
                 <label for="buyer-upload" class="btn btn-secondary" id="buyer-label"
                     title="Vincular códigos de produtos aos nomes dos compradores">
+                    <span class="step-badge-header step-1-badge">1</span>
                     <span class="btn-icon">👤</span> Vincular Compradores
                 </label>
                 <input type="file" id="buyer-upload" accept=".xlsx, .xls" hidden>
+
+                <label for="file-upload" class="btn btn-primary" id="upload-label">
+                    <span class="step-badge-header step-2-badge">2</span>
+                    <span class="btn-icon">📁</span> Importar Planilha
+                </label>
+                <input type="file" id="file-upload" accept=".xlsx, .xls, .csv" hidden>
 
                 <a href="entradas.html" class="btn btn-secondary" style="position: relative;">
                     <span class="btn-icon">📑</span> Análise de Entradas
@@ -116,9 +118,9 @@
 
                 <!-- Group: Projeções -->
                 <div
-                    style="display: flex; flex-direction: column; gap: 0.8rem; flex: 3; min-width: 450px; background: linear-gradient(180deg, rgba(168,85,247,0.06) 0%, transparent 100%); border: 1px solid rgba(168,85,247,0.15); border-radius: 16px; padding: 1.5rem; position: relative;">
+                    style="display: flex; flex-direction: column; gap: 0.8rem; flex: 3; min-width: 450px; background: linear-gradient(180deg, rgba(59,130,246,0.06) 0%, transparent 100%); border: 1px solid rgba(59,130,246,0.15); border-radius: 16px; padding: 1.5rem; position: relative;">
                     <div
-                        style="font-size: 0.85rem; color: #a855f7; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; opacity: 0.9;">
+                        style="font-size: 0.85rem; color: #3b82f6; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; opacity: 0.9;">
                         🔮 Projeções de Ruptura (Capital)</div>
                     <div
                         style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; height: 100%;">
@@ -174,8 +176,27 @@
                                 <span class="company-name">Brasil dos Parafusos</span>
                             </div>
                             <h2>Bem-vindo ao Gestor de Estoque</h2>
-                            <p>Utilize o botão <strong>"Importar Planilha"</strong> no menu superior para iniciar sua
-                                análise</p>
+                            <p>Siga o fluxo abaixo para iniciar sua análise estratégica</p>
+                        </div>
+
+                        <div class="workflow-steps">
+                            <!-- Step 1 -->
+                            <div class="step-card step-1">
+                                <div class="step-number">1</div>
+                                <div class="step-icon">👤</div>
+                                <h3>Vincular Compradores</h3>
+                                <p>Importe sua lista de mapeamento (Código vs Comprador). Isso garante que o sistema identifique os responsáveis por cada item.</p>
+                                <div style="font-size: 0.65rem; color: var(--step-1); font-weight: 700; margin-top: auto; opacity: 0.8; letter-spacing: 0.5px;">RECOMENDADO PRIMEIRO</div>
+                            </div>
+
+                            <!-- Step 2 -->
+                            <div class="step-card step-2">
+                                <div class="step-number">2</div>
+                                <div class="step-icon">📊</div>
+                                <h3>Importar Planilha Giro</h3>
+                                <p>Carregue sua planilha principal de estoque e vendas. O sistema cruzará os dados com os compradores vinculados no Passo 1.</p>
+                                <div style="font-size: 0.65rem; color: var(--step-2); font-weight: 700; margin-top: auto; opacity: 0.8; letter-spacing: 0.5px;">GERA O DASHBOARD</div>
+                            </div>
                         </div>
 
                         <div class="benefits-container">
@@ -397,7 +418,7 @@
 
 
                     <h3
-                        style="grid-column: 1 / -1; font-size: 1.3rem; color: #a855f7; border-bottom: 1px solid rgba(168, 85, 247, 0.3); padding-bottom: 0.5rem; margin-top: 1rem;">
+                        style="grid-column: 1 / -1; font-size: 1.3rem; color: #3b82f6; border-bottom: 1px solid rgba(59, 130, 246, 0.3); padding-bottom: 0.5rem; margin-top: 1rem;">
                         📈 Visualizações Adicionais</h3>
 
                     <div class="rule-card"
