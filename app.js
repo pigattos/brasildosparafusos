@@ -250,6 +250,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const custoObj = getValue(row, ['Preço reposição', 'Custo aquisição', 'Custo Unitário', 'Custo', 'Preço Custo', 'Vlr. Custo', 'Custo Médio', 'Unitário']);
 
             let vendas = parseNum(vendasObj.value);
+            
+            // INTERPRETAÇÃO DA FÓRMULA EXCEL (Base Leadtime): 
+            // Recorrência = CONT.SES(AB2:AG2;">0")/6
             const recData = calculateRecurrence(row, monthCols);
             
             // FALLBACK: If "Vendas" column is 0 or missing, sum the month columns
@@ -305,6 +308,10 @@ document.addEventListener('DOMContentLoaded', () => {
             let emSugestao = false;
             let situacao = 'seguro';
 
+            // INTERPRETAÇÃO DA FÓRMULA EXCEL (Base Leadtime): 
+            // Comprar = SE(E2>F2+G2;"Comprar";"Não comprar")
+            // Onde E2 = Méd.Venda, F2 = Estoque, G2 = Encomendas
+            
             // Only evaluate for risks if recurrence is > 33%
             if (currentRecorrencia > 33) {
                 const totalDisponivel = estoque + encomendas;
