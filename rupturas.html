@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📉</text></svg>">
+    <title>Análise Profunda de Rupturas | Brasil dos Parafusos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <!-- Libraries -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+</head>
+
+<body>
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="loading-content">
+            <div class="spinner-container">
+                <div class="spinner-main"></div>
+                <div class="spinner-accent"></div>
+            </div>
+            <div class="loading-text">
+                <h3>Analisando Histórico de Rupturas</h3>
+                <p>Processando planilhas diárias do OneDrive...</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <header>
+            <div class="logo-area">
+                <div class="header-titles">
+                    <h1>Análise de Rupturas <small>Analítico</small></h1>
+                    <span class="sector-tag">Setor de Compras</span>
+                </div>
+            </div>
+            <div class="header-actions">
+                <label for="folder-upload" class="btn btn-primary" id="refresh-btn">
+                    <span class="btn-icon">📁</span> Selecionar Pasta
+                </label>
+                <input type="file" id="folder-upload" webkitdirectory directory multiple hidden>
+                
+                <a href="entradas.html" class="btn btn-secondary">
+                    <span class="btn-icon">📑</span> Análise de Entradas
+                </a>
+                <a href="index.html" class="btn btn-secondary">
+                    <span class="btn-icon">📦</span> Gestor de Estoque
+                </a>
+            </div>
+        </header>
+
+        <main>
+            <!-- Summary Section -->
+            <section class="summary-cards" style="margin-bottom: 2rem;">
+                <div class="card-nf" style="border-left: 4px solid #fb7185;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+                        <span class="nf-label">Ruptura Atual (Crítico)</span>
+                        <span id="trend-rupture" class="card-trend-badge"></span>
+                    </div>
+                    <span class="nf-value" id="current-rupture-value">R$ 0,00</span>
+                    <span class="nf-sub" id="current-rupture-count">0 itens em risco total</span>
+                </div>
+                <div class="card-nf" style="border-left: 4px solid #f59e0b;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+                        <span class="nf-label">Atenção Atual (2 Meses)</span>
+                        <span id="trend-attention" class="card-trend-badge"></span>
+                    </div>
+                    <span class="nf-value" id="current-attention-value">R$ 0,00</span>
+                    <span class="nf-sub" id="current-attention-count">0 itens em monitoramento</span>
+                </div>
+                <div class="card-nf" style="border-left: 4px solid #818cf8;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+                        <span class="nf-label">Sugestão de Compra</span>
+                        <span id="trend-suggest" class="card-trend-badge"></span>
+                    </div>
+                    <span class="nf-value" id="current-suggest-value">R$ 0,00</span>
+                    <span class="nf-sub" id="current-suggest-count">0 itens para reposição base</span>
+                </div>
+            </section>
+
+            <!-- Main Charts Row -->
+            <div class="entradas-row-full" style="margin-bottom: 2rem;">
+                <div class="chart-container-nf" style="min-height: 450px;">
+                    <h3 style="margin-bottom: 1.5rem; color: var(--primary);">Evolução Histórica das Rupturas (Qtd. Itens)</h3>
+                    <div style="height: 350px; position: relative;">
+                        <canvas id="rupture-evolution-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="entradas-row-full" style="margin-bottom: 2rem;">
+                <div class="chart-container-nf" style="min-height: 450px;">
+                    <h3 style="margin-bottom: 1.5rem; color: #fb7185;">Impacto Financeiro em Ruptura (Valor Acumulado)</h3>
+                    <div style="height: 350px; position: relative;">
+                        <canvas id="value-evolution-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table for historical snapshots -->
+            <section class="data-section">
+                <div class="table-container">
+                    <div class="table-toolbar">
+                        <h3 style="color: white; margin: 0;">Histórico de Snapshots Diários</h3>
+                        <div class="export-group">
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">Dados extraídos da pasta "Análise Rupturas"</span>
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Data do Arquivo</th>
+                                    <th>Nome do Arquivo</th>
+                                    <th style="text-align: center;">Total Itens</th>
+                                    <th style="text-align: center; color: #fb7185;">🚨 Ruptura</th>
+                                    <th style="text-align: center; color: #f59e0b;">⚡ Atenção</th>
+                                    <th style="text-align: center; color: #818cf8;">⚠️ Sugestão</th>
+                                    <th style="text-align: right;">Valor em Risco</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-table-body">
+                                <!-- Data injected via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 Brasil dos Parafusos - Módulo de Análise Analítica de Rupturas</p>
+        </footer>
+    </div>
+
+    <script src="rupturas.js"></script>
+</body>
+
+</html>

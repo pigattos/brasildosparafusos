@@ -7,6 +7,7 @@ const PORT = 3000;
 const SOURCE_DIR = "C:\\Users\\Cassyano\\OneDrive - Brasil do Parafusos\\Comprasbrasil - Compras\\Base entrada de itens";
 const OUTPUT_FILE = "data-entradas.js";
 const LEADTIME_FILE = "C:\\Users\\Cassyano\\OneDrive - Brasil do Parafusos\\Compras\\Relatório Lead time\\Base Leadtime.xlsx";
+const RUPTURE_DIR = "C:\\Users\\Cassyano\\OneDrive - Brasil do Parafusos\\Comprasbrasil - Compras\\Análise Rupturas";
 
 /**
  * Normaliza nomes de colunas para busca flexível
@@ -24,6 +25,11 @@ function findColumn(row, possibilities) {
         if (match) return match;
     }
     return null;
+}
+
+function getValueInRow(row, possibilities) {
+    const col = findColumn(row, possibilities);
+    return col ? row[col] : null;
 }
 
 const server = http.createServer((req, res) => {
@@ -238,6 +244,148 @@ const server = http.createServer((req, res) => {
 
         } catch (e) {
             console.error("ERRO AO LER HISTÓRICO DE VENDAS:", e.message);
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: e.message }));
+        }
+    } else if (req.url === '/rupture-analysis') {
+        console.log("Recebido pedido de análise profunda de rupturas...");
+        try {
+            if (!fs.existsSync(RUPTURE_DIR)) {
+                fs.mkdirSync(RUPTURE_DIR, { recursive: true });
+            }
+
+            const files = fs.readdirSync(RUPTURE_DIR).filter(f => f.endsWith('.xlsx') || f.endsWith('.xls'));
+            console.log(`Arquivos de ruptura encontrados: ${files.length}`);
+            
+            const historyData = [];
+
+            for (const file of files) {
+                const fullPath = path.join(RUPTURE_DIR, file);
+                const stats = fs.statSync(fullPath);
+                
+                // Tenta extrair data do nome do arquivo (ex: 2024-05-07.xlsx) ou usa data de criação
+                let fileDate = stats.mtime.toISOString().split('T')[0];
+                const dateMatch = file.match(/(\d{4}-\d{2}-\d{2})|(\d{2}-\d{2}-\d{4})/);
+                if (dateMatch) {
+                    fileDate = dateMatch[0];
+                }
+
+                const workbook = XLSX.readFile(fullPath, { cellDates: true });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(firstSheet);
+
+                let ruptureCount = 0;
+                let ruptureValue = 0;
+                let attentionCount = 0;
+                let attentionValue = 0;
+                let suggestCount = 0;
+                let suggestValue = 0;
+                let totalItems = rows.length;
+
+                // Identificar colunas de meses para cálculo de recorrência
+                // Lê a primeira linha bruta para pegar os nomes das colunas (mesmo que sejam datas)
+                const rawRows = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+                const headerRow = rawRows[0] || [];
+                
+                const monthInfo = headerRow.map((val, idx) => {
+                    let label = "";
+                    if (val instanceof Date) {
+                        const m = (val.getMonth() + 1).toString().padStart(2, '0');
+                        const y = val.getFullYear();
+                        label = `${m}/${y}`;
+                    } else {
+                        label = String(val || '');
+                    }
+                    return { label, index: idx, original: val };
+                }).filter(h => /^\d{2}\/\d{4}$/.test(h.label));
+
+                // Filtrar apenas meses até 05/2026 (mesmo do dashboard)
+                const validMonthInfo = monthInfo.filter(h => {
+                    const [m, y] = h.label.split('/').map(Number);
+                    return (y < 2026) || (y === 2026 && m <= 5);
+                });
+
+                rows.forEach(row => {
+                    const estoque = parseFloat(getValueInRow(row, ['estoque', 'saldo', 'atual'])) || 0;
+                    const encomendas = parseFloat(getValueInRow(row, ['encomendas', 'pedido', 'transito', 'receber'])) || 0;
+                    const custo = parseFloat(getValueInRow(row, ['preco reposicao', 'custo', 'unitario'])) || 0;
+                    
+                    // Cálculo de Vendas, Recorrência e Média idêntico ao app.js
+                    const vendasRaw = parseFloat(getValueInRow(row, ['vendas', 'qtd. vendida', 'venda total', 'total vendas'])) || 0;
+                    let totalVendas = vendasRaw;
+                    let activeMonths = 0;
+                    let recorrencia = 0;
+                    let medVenda = 0;
+
+                    // Identifica meses ativos para cálculo de recorrência
+                    if (validMonthInfo.length > 0) {
+                        let sumMonths = 0;
+                        validMonthInfo.forEach(m => {
+                            const val = parseFloat(row[m.label] || row[m.original] || 0);
+                            if (val > 0) {
+                                sumMonths += val;
+                                activeMonths++;
+                            }
+                        });
+                        
+                        // Fallback: Se a coluna 'Vendas' for zero, usa a soma dos meses (mesmo do app.js)
+                        if (totalVendas === 0) totalVendas = sumMonths;
+                        
+                        recorrencia = activeMonths / validMonthInfo.length;
+                        // Média baseada apenas nos meses com venda (mesma lógica do app.js)
+                        medVenda = activeMonths > 0 ? (totalVendas / activeMonths) : 0;
+                    } else {
+                        // ... fallback anterior
+                        // Fallback caso não haja colunas de meses (usa as colunas agregadas)
+                        medVenda = parseFloat(getValueInRow(row, ['med.venda', 'media', 'giro', 'venda mensal'])) || 0;
+                        const recCol = findColumn(row, ['recorrencia', 'giro freq', 'frequencia']);
+                        if (recCol) {
+                            recorrencia = parseFloat(row[recCol]) || 0;
+                            if (recorrencia > 1) recorrencia = recorrencia / 100;
+                        } else {
+                            recorrencia = 1;
+                        }
+                    }
+                    
+                    const totalDisponivel = estoque + encomendas;
+                    const passesRecurrence = (recorrencia > 0.33);
+
+                    if (passesRecurrence) {
+                        if (medVenda > totalDisponivel) {
+                            ruptureCount++;
+                            ruptureValue += (medVenda * custo);
+                        } else if ((medVenda * 2) > totalDisponivel) {
+                            attentionCount++;
+                            attentionValue += (medVenda * 2 * custo);
+                        } else if ((medVenda * 3) > totalDisponivel) {
+                            suggestCount++;
+                            suggestValue += (medVenda * 3 * custo);
+                        }
+                    }
+                });
+
+                historyData.push({
+                    file: file,
+                    date: fileDate,
+                    totalItems,
+                    rupture: { count: ruptureCount, value: ruptureValue },
+                    attention: { count: attentionCount, value: attentionValue },
+                    suggest: { count: suggestCount, value: suggestValue }
+                });
+            }
+
+            // Ordenar por data
+            historyData.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ 
+                success: true, 
+                count: historyData.length,
+                data: historyData 
+            }));
+            
+        } catch (e) {
+            console.error("ERRO NA ANÁLISE DE RUPTURAS:", e.message);
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: false, error: e.message }));
         }

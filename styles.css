@@ -104,6 +104,13 @@ header {
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
 }
 
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: nowrap;
+}
+
 .logo-area {
     display: flex;
     align-items: center;
@@ -113,7 +120,7 @@ header {
     display: flex;
     flex-direction: column;
     border-left: 4px solid var(--primary);
-    padding-left: 1.5rem;
+    padding-left: 1.2rem;
 }
 
 .logo-area h1 {
@@ -323,10 +330,10 @@ header {
 }
 
 .step-badge-header {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     font-weight: 800;
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -570,6 +577,8 @@ td {
     border-bottom: 1px solid var(--border-color);
     font-size: 0.8rem;
     vertical-align: middle;
+    position: relative; /* Base for salient hover effects */
+    min-height: 70px; /* Ensure row stability when child becomes absolute on hover */
 }
 
 .cell-label {
@@ -601,8 +610,8 @@ th:nth-child(10), td:nth-child(10) { width: 115px; text-align: center; } /* Esta
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: var(--text-main);
-    font-weight: 500;
+    transition: all var(--transition-mid);
+    cursor: help;
 }
 
 .td-supplier {
@@ -612,6 +621,35 @@ th:nth-child(10), td:nth-child(10) { width: 115px; text-align: center; } /* Esta
     white-space: nowrap;
     color: var(--text-muted);
 }
+
+.td-desc {
+    color: var(--text-main);
+    font-weight: 500;
+}
+
+
+.td-desc:hover {
+    overflow: visible;
+    white-space: normal;
+    position: absolute;
+    z-index: 1000;
+    background: #1e293b;
+    padding: 15px 20px;
+    border-radius: var(--radius-md);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 
+                0 0 20px var(--primary-glow);
+    border: 1px solid var(--primary);
+    width: max-content;
+    max-width: 500px;
+    min-width: 250px;
+    transform: translateY(-50%);
+    line-height: 1.5;
+    color: #fff;
+    left: 4px;
+    top: 50%; /* Center relative to td */
+    font-size: 0.9rem;
+}
+
 
 tr {
     transition: background var(--transition-fast);
@@ -793,20 +831,21 @@ tr:hover {
 
 /* Buttons */
 .btn {
-    padding: 0.6rem 1.2rem;
+    padding: 0.5rem 0.9rem;
     border-radius: var(--radius-md);
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: 0.78rem;
     font-family: 'Outfit', sans-serif;
     letter-spacing: 0.3px;
     cursor: pointer;
     transition: all var(--transition-mid);
     display: inline-flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     border: 1px solid rgba(255, 255, 255, 0.05);
     text-decoration: none;
     backdrop-filter: blur(4px);
+    white-space: nowrap;
 }
 
 .btn-primary {

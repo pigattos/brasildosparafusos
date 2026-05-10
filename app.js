@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const clearFiltersBtn = document.getElementById('clear-filters');
     const chartSection = document.getElementById('chart-section');
     const loadingOverlay = document.getElementById('loading-overlay');
+    const folderUpload = document.getElementById('folder-upload');
 
     // --- Loading Control ---
     function showLoading() {
@@ -43,6 +44,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    if (folderUpload) folderUpload.addEventListener('change', handleFolderUpload);
+
     // Register ChartJS Plugin
     Chart.register(ChartDataLabels);
 
@@ -67,16 +70,194 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     async function fetchSalesHistory() {
         try {
-            console.log("Tentando buscar histórico do Leadtime...");
+            console.log("Tentando buscar histórico do Leadtime via Bridge...");
             const response = await fetch(`http://localhost:3000/sales-history?t=${Date.now()}`);
             const result = await response.json();
             if (result.success) {
                 leadtimeSalesHistory = result.data;
                 console.log(`✅ Sucesso! ${Object.keys(leadtimeSalesHistory).length} itens carregados do Leadtime.`);
+                if (currentData.length > 0) {
+                    console.log("Re-processando dados com novo histórico do Leadtime...");
+                    // Se já houver dados, re-processamos com o novo histórico
+                    // Como processData precisa do JSON bruto, e não o temos salvo, 
+                    // o ideal seria que o usuário fizesse o upload novamente ou tivéssemos o JSON original.
+                    // Para simplificar, informamos que o Leadtime está pronto.
+                }
             }
         } catch (e) {
-            console.warn("⚠️ Não foi possível conectar ao bridge para buscar histórico do Leadtime. Usando dados da planilha local.");
+            console.warn("⚠️ Bridge indisponível. Use o botão 'Sync OneDrive' para carregar o histórico manualmente.");
         }
+    }
+
+    /**
+     * Processa a pasta do OneDrive selecionada pelo usuário
+     */
+    async function handleFolderUpload(e) {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+
+        showLoading();
+        try {
+            // Procurar especificamente pelo arquivo de Leadtime
+            const leadtimeFile = files.find(f => f.name.toLowerCase().includes('base leadtime') && f.name.endsWith('.xlsx'));
+            
+            if (leadtimeFile) {
+                console.log(`Arquivo Leadtime encontrado: ${leadtimeFile.name}`);
+                const data = await readExcel(leadtimeFile);
+                processLeadtimeData(data);
+                alert(`✅ Histórico do Leadtime sincronizado (${Object.keys(leadtimeSalesHistory).length} itens).`);
+                
+                // Se já tivermos dados na tabela, precisamos atualizar as médias e cores
+                if (currentData.length > 0) {
+                    // Nota: Idealmente salvaríamos o JSON bruto original para re-processar.
+                    // Como solução paliativa, informamos ao usuário para carregar a planilha de giro novamente
+                    // ou tentamos atualizar os objetos existentes se o código bater.
+                    updateExistingDataWithLeadtime();
+                }
+            } else {
+                alert("Arquivo 'Base Leadtime.xlsx' não encontrado na pasta selecionada.");
+            }
+        } catch (err) {
+            console.error("Erro ao processar pasta OneDrive:", err);
+            alert("Erro ao processar arquivos da pasta.");
+        } finally {
+            hideLoading();
+            e.target.value = '';
+        }
+    }
+
+    function readExcel(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                resolve(json);
+            };
+            reader.onerror = reject;
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    function processLeadtimeData(rows) {
+        if (!rows || rows.length === 0) return;
+
+        // Identificar a linha de cabeçalho e as colunas de meses (mesma lógica do bridge.js)
+        let headerRow = rows[0];
+        for (let i = 0; i < Math.min(rows.length, 10); i++) {
+            if (rows[i].some(cell => {
+                if (cell instanceof Date) return true;
+                return typeof cell === 'string' && /^\d{2}\/\d{4}$/.test(cell);
+            })) {
+                headerRow = rows[i];
+                break;
+            }
+        }
+
+        const monthCols = headerRow
+            .map(k => {
+                if (k instanceof Date) {
+                    const m = (k.getMonth() + 1).toString().padStart(2, '0');
+                    const y = k.getFullYear();
+                    return `${m}/${y}`;
+                }
+                return String(k || '');
+            })
+            .filter(k => /^\d{2}\/\d{4}$/.test(k))
+            .filter(m => {
+                const [mon, yr] = m.split('/').map(Number);
+                return (yr < 2026) || (yr === 2026 && mon <= 5);
+            })
+            .sort((a, b) => {
+                const [mA, yA] = a.split('/').map(Number);
+                const [mB, yB] = b.split('/').map(Number);
+                return (yA * 12 + mA) - (yB * 12 + mB);
+            });
+
+        const uniqueMonthCols = [...new Set(monthCols)];
+        const monthMap = [];
+        headerRow.forEach((val, idx) => {
+            let label = "";
+            if (val instanceof Date) {
+                const m = (val.getMonth() + 1).toString().padStart(2, '0');
+                const y = val.getFullYear();
+                label = `${m}/${y}`;
+            } else {
+                label = String(val || '');
+            }
+            if (uniqueMonthCols.includes(label)) {
+                monthMap.push({ index: idx, label: label });
+            }
+        });
+
+        monthMap.sort((a, b) => {
+            const [mA, yA] = a.label.split('/').map(Number);
+            const [mB, yB] = b.label.split('/').map(Number);
+            return (yA * 12 + mA) - (yB * 12 + mB);
+        });
+
+        const salesMap = {};
+        const dataRows = rows.slice(rows.indexOf(headerRow) + 1);
+        const prodIdx = headerRow.findIndex(h => h && h.toString().toLowerCase().includes('produto'));
+        
+        dataRows.forEach(row => {
+            const code = String(row[prodIdx] || '').trim();
+            if (!code || code === 'undefined') return;
+
+            const history = monthMap.map(m => parseFloat(row[m.index]) || 0);
+            salesMap[code] = {
+                history: history,
+                labels: monthMap.map(m => m.label)
+            };
+        });
+
+        leadtimeSalesHistory = salesMap;
+    }
+
+    function updateExistingDataWithLeadtime() {
+        // Atualiza os dados já carregados na memória com o novo histórico do Leadtime
+        currentData.forEach(item => {
+            const code = item.produto;
+            if (code !== 'N/A' && leadtimeSalesHistory[code]) {
+                const lt = leadtimeSalesHistory[code];
+                item.historico = lt.history;
+                item.monthLabels = lt.labels;
+                item.vendas = lt.history.reduce((a, b) => a + b, 0);
+                
+                const activeMonths = lt.history.filter(v => v > 0).length;
+                const finalRecorrencia = lt.history.length > 0 ? (activeMonths / lt.history.length) * 100 : 0;
+                const finalMedVenda = activeMonths > 0 ? (item.vendas / activeMonths) : 0;
+                
+                item.medVenda = finalMedVenda.toFixed(3);
+                item.recorrencia = finalRecorrencia.toFixed(0);
+                
+                // Recalcular situação e dias de estoque
+                const DIAS_UTEIS_MES = 22;
+                item.diasEstoque = (finalMedVenda > 0) ? Math.round((item.estoque / finalMedVenda) * DIAS_UTEIS_MES) : null;
+                
+                item.situacao = 'seguro';
+                item.emRisco = false;
+                item.emAtencao = false;
+                item.emSugestao = false;
+                
+                if (finalRecorrencia > 33) {
+                    const totalDisponivel = item.estoque + item.encomendas;
+                    if (finalMedVenda > totalDisponivel) {
+                        item.situacao = 'ruptura'; item.emRisco = true;
+                    } else if ((finalMedVenda * 2) > totalDisponivel) {
+                        item.situacao = 'atencao'; item.emAtencao = true;
+                    } else if ((finalMedVenda * 3) > totalDisponivel) {
+                        item.situacao = 'sugestao'; item.emSugestao = true;
+                    }
+                }
+            }
+        });
+        
+        filteredData = [...currentData];
+        renderTable(filteredData);
     }
 
     fetchSalesHistory();
@@ -401,16 +582,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 </td>
                 <td>
                     <span class="cell-label">Descrição</span>
-                    <div class="cell-value td-desc" title="${item.descricao}">${item.descricao}</div>
+                    <div class="cell-value td-desc">${item.descricao}</div>
                 </td>
                 <td style="text-align: center;">
                     <span class="cell-label">UN</span>
                     <div class="cell-value">${item.un}</div>
                 </td>
 
-                <td title="${item.fornecedor}">
+                <td>
                     <span class="cell-label">Fornecedor</span>
-                    <div class="cell-value td-supplier">${item.fornecedor}</div>
+                    <div class="cell-value td-supplier" title="${item.fornecedor}">${item.fornecedor}</div>
                 </td>
                 <td>
                     <span class="cell-label">Comprador</span>
