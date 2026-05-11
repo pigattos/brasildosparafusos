@@ -57,6 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let sortRecorrenciaDir = 'none';
     let sortVendasDir = 'none';
     let sortDiasEstoqueDir = 'none';
+    let isRecurrenceActive = false;
     let myChart = null;
     let supplierChart = null;
     let groupChart = null;
@@ -733,99 +734,101 @@ document.addEventListener('DOMContentLoaded', () => {
         if (ordersValueEl) ordersValueEl.textContent = formatValue(sumOrderVal(orderItems));
 
         // --- Projeções por Recorrência Dinâmicas ---
-        const statusFilters = activeFilters.filter(f => ['buy', 'attention', 'suggest'].includes(f));
-        
-        let baseRecItems = [];
-        let recMonths = 1;
-        let recTitle = "📈 Projeções por Recorrência (1m)";
-        let recColor = "#10b981";
-
-        if (statusFilters.length === 1) {
-            const currentFilter = statusFilters[0];
-            if (currentFilter === 'buy') {
-                baseRecItems = buyItems;
-                recMonths = 1;
-                recTitle = "📈 Projeções por Recorrência (1m)";
-                recColor = "#fb7185";
-            } else if (currentFilter === 'attention') {
-                baseRecItems = attentionItems;
-                recMonths = 2;
-                recTitle = "📈 Projeções por Recorrência (2m)";
-                recColor = "#f59e0b";
-            } else if (currentFilter === 'suggest') {
-                baseRecItems = suggestItems;
-                recMonths = 3;
-                recTitle = "📈 Projeções por Recorrência (3m)";
-                recColor = "#eab308";
-            }
-        } else {
-            // Multi-seleção ou Geral: consideramos todos os itens em risco
-            baseRecItems = [...buyItems, ...attentionItems, ...suggestItems];
-            recTitle = "📈 Projeções por Recorrência (Geral)";
-            recColor = "#10b981";
-        }
-
-        const recTitleEl = document.getElementById('recurrence-title');
-        if (recTitleEl) {
-            recTitleEl.textContent = recTitle;
-            recTitleEl.style.color = recColor;
-        }
-
-        const recSteps = [17, 33, 50, 67, 83, 100];
-        const currentSliderIdx = document.getElementById('rec-slider')?.value || 0;
-        const currentRecVal = recSteps[currentSliderIdx];
-        
-        // Update display labels
-        const recDisplayEl = document.getElementById('current-rec-display');
-        if (recDisplayEl) {
-            recDisplayEl.textContent = `${currentRecVal}%`;
-            recDisplayEl.style.color = recColor;
-        }
-
-        const updateRecSliderStats = (items) => {
-            const countEl = document.getElementById('rec-stat-count');
-            const valueEl = document.getElementById('rec-stat-value');
-            const slider = document.getElementById('rec-slider');
+        if (isRecurrenceActive) {
+            const statusFilters = activeFilters.filter(f => ['buy', 'attention', 'suggest'].includes(f));
             
-            const filteredByRec = items.filter(i => parseFloat(i.recorrencia) >= currentRecVal);
-            
-            if (countEl) countEl.textContent = `${filteredByRec.length} itens`;
-            
-            let totalVal = 0;
+            let baseRecItems = [];
+            let recMonths = 1;
+            let recTitle = "📈 Projeções por Recorrência (1m)";
+            let recColor = "#10b981";
+
             if (statusFilters.length === 1) {
-                totalVal = sumValAlerts(filteredByRec, recMonths);
+                const currentFilter = statusFilters[0];
+                if (currentFilter === 'buy') {
+                    baseRecItems = buyItems;
+                    recMonths = 1;
+                    recTitle = "📈 Projeções por Recorrência (1m)";
+                    recColor = "#fb7185";
+                } else if (currentFilter === 'attention') {
+                    baseRecItems = attentionItems;
+                    recMonths = 2;
+                    recTitle = "📈 Projeções por Recorrência (2m)";
+                    recColor = "#f59e0b";
+                } else if (currentFilter === 'suggest') {
+                    baseRecItems = suggestItems;
+                    recMonths = 3;
+                    recTitle = "📈 Projeções por Recorrência (3m)";
+                    recColor = "#eab308";
+                }
             } else {
-                totalVal = filteredByRec.reduce((acc, i) => {
-                    let m = 0;
-                    if (i.situacao === 'ruptura') m = 1;
-                    else if (i.situacao === 'atencao') m = 2;
-                    else if (i.situacao === 'sugestao') m = 3;
-                    return acc + ((parseFloat(i.medVenda) || 0) * m * (parseFloat(i.custoRaw) || 0));
-                }, 0);
+                // Multi-seleção ou Geral: consideramos todos os itens em risco
+                baseRecItems = [...buyItems, ...attentionItems, ...suggestItems];
+                recTitle = "📈 Projeções por Recorrência (Geral)";
+                recColor = "#10b981";
             }
+
+            const recTitleEl = document.getElementById('recurrence-title');
+            if (recTitleEl) {
+                recTitleEl.textContent = recTitle;
+                recTitleEl.style.color = recColor;
+            }
+
+            const recSteps = [17, 33, 50, 67, 83, 100];
+            const currentSliderIdx = document.getElementById('rec-slider')?.value || 0;
+            const currentRecVal = recSteps[currentSliderIdx];
             
-            if (valueEl) {
-                valueEl.textContent = formatValue(totalVal);
-                valueEl.style.color = recColor;
+            // Update display labels
+            const recDisplayEl = document.getElementById('current-rec-display');
+            if (recDisplayEl) {
+                recDisplayEl.textContent = `${currentRecVal}%`;
+                recDisplayEl.style.color = recColor;
             }
 
-            // Update legend colors to match
-            document.querySelectorAll('.timeline-legend strong').forEach(el => {
-                el.style.color = recColor;
-            });
+            const updateRecSliderStats = (items) => {
+                const countEl = document.getElementById('rec-stat-count');
+                const valueEl = document.getElementById('rec-stat-value');
+                const slider = document.getElementById('rec-slider');
+                
+                const filteredByRec = items.filter(i => parseFloat(i.recorrencia) >= currentRecVal);
+                
+                if (countEl) countEl.textContent = `${filteredByRec.length} itens`;
+                
+                let totalVal = 0;
+                if (statusFilters.length === 1) {
+                    totalVal = sumValAlerts(filteredByRec, recMonths);
+                } else {
+                    totalVal = filteredByRec.reduce((acc, i) => {
+                        let m = 0;
+                        if (i.situacao === 'ruptura') m = 1;
+                        else if (i.situacao === 'atencao') m = 2;
+                        else if (i.situacao === 'sugestao') m = 3;
+                        return acc + ((parseFloat(i.medVenda) || 0) * m * (parseFloat(i.custoRaw) || 0));
+                    }, 0);
+                }
+                
+                if (valueEl) {
+                    valueEl.textContent = formatValue(totalVal);
+                    valueEl.style.color = recColor;
+                }
 
-            // Update slider thumb color
-            if (slider) {
-                const style = document.createElement('style');
-                style.innerHTML = `
-                    #rec-slider::-webkit-slider-thumb { background: ${recColor} !important; box-shadow: 0 0 15px ${recColor}66 !important; }
-                    #rec-slider::-moz-range-thumb { background: ${recColor} !important; box-shadow: 0 0 15px ${recColor}66 !important; }
-                `;
-                document.head.appendChild(style);
-            }
-        };
+                // Update legend colors to match
+                document.querySelectorAll('.timeline-legend strong').forEach(el => {
+                    el.style.color = recColor;
+                });
 
-        updateRecSliderStats(baseRecItems);
+                // Update slider thumb color
+                if (slider) {
+                    const style = document.createElement('style');
+                    style.innerHTML = `
+                        #rec-slider::-webkit-slider-thumb { background: ${recColor} !important; box-shadow: 0 0 15px ${recColor}66 !important; }
+                        #rec-slider::-moz-range-thumb { background: ${recColor} !important; box-shadow: 0 0 15px ${recColor}66 !important; }
+                    `;
+                    document.head.appendChild(style);
+                }
+            };
+
+            updateRecSliderStats(baseRecItems);
+        }
 
         // Update Charts with filtered data
         updateChart(data);
@@ -1275,10 +1278,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const recurrenceGroup = document.getElementById('recurrence-group');
         if (!recurrenceGroup) return;
 
-        // Verifica se algum dos critérios (Ruptura, Atenção ou Sugestão) está ativo nos filtros
+        // Só exibe se foi ativado via card E existe algum critério de projeção ativo
         const hasActiveCriterion = activeFilters.some(f => ['buy', 'attention', 'suggest'].includes(f));
         
-        if (hasActiveCriterion) {
+        if (isRecurrenceActive && hasActiveCriterion) {
             recurrenceGroup.style.display = 'flex';
         } else {
             recurrenceGroup.style.display = 'none';
@@ -1356,16 +1359,23 @@ document.addEventListener('DOMContentLoaded', () => {
         renderTable(filteredData);
     }
 
-    function toggleFilter(filter) {
+    function toggleFilter(filter, source = 'table') {
         if (filter === 'all') {
             activeFilters = ['all'];
+            isRecurrenceActive = false;
         } else {
+            // Se o clique veio dos botões da tabela ou outro lugar que não seja o card resumo
+            if (source === 'table') {
+                isRecurrenceActive = false;
+            }
+
             // Remove 'all' if it exists
             activeFilters = activeFilters.filter(f => f !== 'all');
             
             if (activeFilters.includes(filter)) {
                 // Toggle off
                 activeFilters = activeFilters.filter(f => f !== filter);
+                if (activeFilters.length === 0) isRecurrenceActive = false;
             } else {
                 // Toggle on
                 activeFilters.push(filter);
@@ -1374,6 +1384,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // If nothing is selected, default to 'all'
             if (activeFilters.length === 0) {
                 activeFilters = ['all'];
+                isRecurrenceActive = false;
             }
         }
 
@@ -1487,9 +1498,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.clickable-card').forEach(card => {
         card.addEventListener('click', () => {
             const filter = card.getAttribute('data-filter');
+            isRecurrenceActive = true; // Ativa a exibição da seção de recorrência
             activeRecFilter = null; // Reset rec filter when clicking main status
             document.querySelectorAll('.rec-card').forEach(c => c.style.boxShadow = 'none');
-            toggleFilter(filter);
+            toggleFilter(filter, 'card');
         });
     });
 
@@ -1512,6 +1524,7 @@ document.addEventListener('DOMContentLoaded', () => {
         supplierSearch.value = '';
         activeBuyer = 'all';
         activeRecFilter = null;
+        isRecurrenceActive = false;
         if (recSlider) recSlider.value = 0; // Reset to 17%
         
         buyerBtns.forEach(btn => {
