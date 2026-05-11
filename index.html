@@ -158,30 +158,46 @@
                     <div id="recurrence-title"
                         style="font-size: 0.85rem; color: #10b981; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; opacity: 0.9;">
                         📈 Projeções por Recorrência (1m)</div>
-                    <div class="timeline-container" style="margin-top: 1rem; padding: 0 1rem;">
-                        <div class="timeline-header" style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem;">
-                            <div class="selected-rec-info">
-                                <span style="display: block; font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">Recorrência Mínima</span>
-                                <div style="display: flex; align-items: baseline; gap: 8px;">
-                                    <span id="current-rec-display" style="font-size: 2.2rem; font-weight: 700; color: #10b981; font-family: 'Outfit', sans-serif;">17%</span>
-                                    <span style="color: var(--text-muted); font-size: 0.9rem;">ou mais</span>
+                    <div class="timeline-container" style="margin-top: 1rem; padding: 0 1rem; display: flex; gap: 2.5rem; align-items: flex-start;">
+                        <!-- Coluna Esquerda: Controle e Stats -->
+                        <div style="flex: 1;">
+                            <div class="timeline-header" style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 1.5rem;">
+                                <div class="selected-rec-info">
+                                    <span style="display: block; font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">Recorrência Mínima</span>
+                                    <div style="display: flex; align-items: baseline; gap: 8px;">
+                                        <span id="current-rec-display" style="font-size: 2.2rem; font-weight: 700; color: #10b981; font-family: 'Outfit', sans-serif;">17%</span>
+                                        <span style="color: var(--text-muted); font-size: 0.9rem;">ou mais</span>
+                                    </div>
+                                </div>
+                                <div class="selected-rec-stats" style="text-align: right;">
+                                    <div id="rec-stat-count" style="font-size: 1.5rem; font-weight: 600; color: #fff;">0 itens</div>
+                                    <div id="rec-stat-value" style="font-size: 1.1rem; color: #10b981; font-weight: 500;">R$ 0,00</div>
                                 </div>
                             </div>
-                            <div class="selected-rec-stats" style="text-align: right;">
-                                <div id="rec-stat-count" style="font-size: 1.5rem; font-weight: 600; color: #fff;">0 itens</div>
-                                <div id="rec-stat-value" style="font-size: 1.1rem; color: #10b981; font-weight: 500;">R$ 0,00</div>
+                            
+                            <div class="slider-wrapper" style="position: relative; padding: 10px 0;">
+                                <input type="range" id="rec-slider" min="0" max="5" step="1" value="0" class="premium-slider" style="width: 100%;">
+                                <div class="slider-labels" style="display: flex; justify-content: space-between; margin-top: 15px; color: var(--text-muted); font-size: 0.75rem; font-weight: 600;">
+                                    <span>17%</span>
+                                    <span>33%</span>
+                                    <span>50%</span>
+                                    <span>67%</span>
+                                    <span>83%</span>
+                                    <span>100%</span>
+                                </div>
                             </div>
                         </div>
-                        
-                        <div class="slider-wrapper" style="position: relative; padding: 10px 0;">
-                            <input type="range" id="rec-slider" min="0" max="5" step="1" value="0" class="premium-slider" style="width: 100%;">
-                            <div class="slider-labels" style="display: flex; justify-content: space-between; margin-top: 15px; color: var(--text-muted); font-size: 0.75rem; font-weight: 600;">
-                                <span>17%</span>
-                                <span>33%</span>
-                                <span>50%</span>
-                                <span>67%</span>
-                                <span>83%</span>
-                                <span>100%</span>
+
+                        <!-- Coluna Direita: Legenda -->
+                        <div class="timeline-legend" style="padding-left: 2rem; border-left: 1px solid rgba(255,255,255,0.05); min-width: 200px;">
+                            <span style="display: block; font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1rem; font-weight: 700;">📌 Guia de Fidelidade</span>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; font-size: 0.75rem;">
+                                <div style="color: rgba(255,255,255,0.7);"><strong style="color: #10b981;">17%</strong> = 1 Mês</div>
+                                <div style="color: rgba(255,255,255,0.7);"><strong style="color: #10b981;">67%</strong> = 4 Meses</div>
+                                <div style="color: rgba(255,255,255,0.7);"><strong style="color: #10b981;">33%</strong> = 2 Meses</div>
+                                <div style="color: rgba(255,255,255,0.7);"><strong style="color: #10b981;">83%</strong> = 5 Meses</div>
+                                <div style="color: rgba(255,255,255,0.7);"><strong style="color: #10b981;">50%</strong> = 3 Meses</div>
+                                <div style="color: rgba(255,255,255,0.7);"><strong style="color: #10b981;">100%</strong> = 6 Meses</div>
                             </div>
                         </div>
                     </div>

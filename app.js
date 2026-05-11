@@ -809,6 +809,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 valueEl.style.color = recColor;
             }
 
+            // Update legend colors to match
+            document.querySelectorAll('.timeline-legend strong').forEach(el => {
+                el.style.color = recColor;
+            });
+
             // Update slider thumb color
             if (slider) {
                 const style = document.createElement('style');
