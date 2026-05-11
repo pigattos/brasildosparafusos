@@ -244,7 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 item.emAtencao = false;
                 item.emSugestao = false;
                 
-                if (finalRecorrencia > 33) {
+                if (finalRecorrencia > 17) {
                     const totalDisponivel = item.estoque + item.encomendas;
                     if (finalMedVenda > totalDisponivel) {
                         item.situacao = 'ruptura'; item.emRisco = true;
@@ -495,7 +495,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Onde E2 = Méd.Venda, F2 = Estoque, G2 = Encomendas
             
             // Only evaluate for risks if recurrence is > 33%
-            if (currentRecorrencia > 33) {
+            if (currentRecorrencia > 17) {
                 const totalDisponivel = estoque + encomendas;
                 
                 if (medVenda > totalDisponivel) {
@@ -734,6 +734,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- Projeções por Recorrência (Baseado no Risco de Ruptura 1m) ---
         // Filtramos os itens que já estão em risco de ruptura pelas faixas de recorrência solicitadas
+        const rec33Items = buyItems.filter(i => parseFloat(i.recorrencia) >= 33);
         const rec50Items = buyItems.filter(i => parseFloat(i.recorrencia) >= 50);
         const rec67Items = buyItems.filter(i => parseFloat(i.recorrencia) >= 67);
         const rec83Items = buyItems.filter(i => parseFloat(i.recorrencia) >= 83);
@@ -746,7 +747,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (valueEl) valueEl.textContent = formatValue(sumValAlerts(items, 1));
         };
 
-        updateRec('rec-33-count', 'rec-33-value', buyItems); // 33% é o gatilho padrão do sistema
+        updateRec('rec-17-count', 'rec-17-value', buyItems); // 17% é o novo gatilho padrão do sistema
+        updateRec('rec-33-count', 'rec-33-value', rec33Items);
         updateRec('rec-50-count', 'rec-50-value', rec50Items);
         updateRec('rec-67-count', 'rec-67-value', rec67Items);
         updateRec('rec-83-count', 'rec-83-value', rec83Items);

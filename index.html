@@ -159,7 +159,12 @@
                         style="font-size: 0.85rem; color: #10b981; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; opacity: 0.9;">
                         📈 Projeções por Recorrência (1m)</div>
                     <div
-                        style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.8rem; height: 100%;">
+                        style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.8rem; height: 100%;">
+                        <div class="stat-card rec-card" data-rec="17" style="padding: 1rem; border-color: rgba(16,185,129,0.05); cursor: pointer;">
+                            <span class="stat-label" style="font-size: 0.75rem;">17%+</span>
+                            <span class="stat-value" id="rec-17-count" style="font-size: 1.5rem;">0</span>
+                            <span class="stat-sub" id="rec-17-value" style="font-size: 0.72rem; color: #10b981; margin-top: -2px;">R$ 0,00</span>
+                        </div>
                         <div class="stat-card rec-card" data-rec="33" style="padding: 1rem; border-color: rgba(16,185,129,0.1); cursor: pointer;">
                             <span class="stat-label" style="font-size: 0.75rem;">33%+</span>
                             <span class="stat-value" id="rec-33-count" style="font-size: 1.5rem;">0</span>
@@ -427,7 +432,7 @@
                             baseando no histórico.</p>
                         <div class="rule-math">
                             <strong>⚠️ Condição de Entrada:</strong><br>
-                            <code>(Disp. &lt; Vendas Médias * 1) AND (Recorrência &gt; 33%)</code><br><br>
+                            <code>(Disp. &lt; Vendas Médias * 1) AND (Recorrência &gt; 17%)</code><br><br>
                             <strong>💰 Capital Alvo Projetado:</strong><br>
                             <code>Média Venda × 1 mês × Preço de Reposição</code>
                         </div>
@@ -441,7 +446,7 @@
                             padrão.</p>
                         <div class="rule-math">
                             <strong>⚠️ Condição de Entrada:</strong><br>
-                            <code>(Disp. &lt; Vendas Médias * 2) AND (Recorrência &gt; 33%)</code><br><br>
+                            <code>(Disp. &lt; Vendas Médias * 2) AND (Recorrência &gt; 17%)</code><br><br>
                             <strong>💰 Capital Alvo Projetado:</strong><br>
                             <code>Média Venda × 2 meses × Preço de Reposição</code>
                         </div>
@@ -455,7 +460,7 @@
                             haja um aumento de demanda leve.</p>
                         <div class="rule-math">
                             <strong>⚠️ Condição de Entrada:</strong><br>
-                            <code>(Disp. &lt; Vendas Médias * 3) AND (Recorrência &gt; 33%)</code><br><br>
+                            <code>(Disp. &lt; Vendas Médias * 3) AND (Recorrência &gt; 17%)</code><br><br>
                             <strong>💰 Capital Alvo Projetado:</strong><br>
                             <code>Média Venda × 3 meses × Preço de Reposição</code>
                         </div>
