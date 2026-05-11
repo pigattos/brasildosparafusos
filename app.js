@@ -53,6 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let filteredData = [];
     let activeFilters = ['all'];
     let activeBuyer = 'all';
+    let activeRecFilter = null; // Filter by recurrence bracket (only for Ruptura)
     let sortRecorrenciaDir = 'none';
     let sortVendasDir = 'none';
     let sortDiasEstoqueDir = 'none';
@@ -731,6 +732,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const ordersValueEl = document.getElementById('orders-value');
         if (ordersValueEl) ordersValueEl.textContent = formatValue(sumOrderVal(orderItems));
 
+        // --- Projeções por Recorrência (Baseado no Risco de Ruptura 1m) ---
+        // Filtramos os itens que já estão em risco de ruptura pelas faixas de recorrência solicitadas
+        const rec50Items = buyItems.filter(i => parseFloat(i.recorrencia) >= 50);
+        const rec67Items = buyItems.filter(i => parseFloat(i.recorrencia) >= 67);
+        const rec83Items = buyItems.filter(i => parseFloat(i.recorrencia) >= 83);
+        const rec100Items = buyItems.filter(i => parseFloat(i.recorrencia) >= 100);
+
+        const updateRec = (idCount, idValue, items) => {
+            const countEl = document.getElementById(idCount);
+            const valueEl = document.getElementById(idValue);
+            if (countEl) countEl.textContent = items.length;
+            if (valueEl) valueEl.textContent = formatValue(sumValAlerts(items, 1));
+        };
+
+        updateRec('rec-33-count', 'rec-33-value', buyItems); // 33% é o gatilho padrão do sistema
+        updateRec('rec-50-count', 'rec-50-value', rec50Items);
+        updateRec('rec-67-count', 'rec-67-value', rec67Items);
+        updateRec('rec-83-count', 'rec-83-value', rec83Items);
+        updateRec('rec-100-count', 'rec-100-value', rec100Items);
+
         // Update Charts with filtered data
         updateChart(data);
     }
@@ -1188,6 +1209,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const matchSupp = i.fornecedor.toString().toLowerCase().includes(suppTerm);
             const matchBuyer = activeBuyer === 'all' || i.comprador.toLowerCase() === activeBuyer.toLowerCase();
             
+            // 3. Filter by Recurrence Bracket (if set, usually for Ruptura)
+            let matchRec = true;
+            if (activeRecFilter !== null) {
+                matchRec = parseFloat(i.recorrencia) >= activeRecFilter;
+            }
+
             // 4. Filter by Buttons (Status) - Intelligent multi-select logic
             let matchStatus = true;
             if (!activeFilters.includes('all')) {
@@ -1209,7 +1236,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 matchStatus = passStatus && passFlags;
             }
 
-            return matchProd && matchSupp && matchBuyer && matchStatus;
+            return matchProd && matchSupp && matchBuyer && matchStatus && matchRec;
         });
 
         // 4. Sorting
@@ -1360,7 +1387,50 @@ document.addEventListener('DOMContentLoaded', () => {
     filterBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             const filter = btn.getAttribute('data-filter');
+            // Clear recurrence filter when switching status if needed, 
+            // but let's keep them independent for power users.
             toggleFilter(filter);
+        });
+    });
+
+    // Clickable Projection Cards (Ruptura, Atenção, Sugestão)
+    document.querySelectorAll('.clickable-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const filter = card.getAttribute('data-filter');
+            activeRecFilter = null; // Reset rec filter when clicking main status
+            document.querySelectorAll('.rec-card').forEach(c => c.style.boxShadow = 'none');
+            toggleFilter(filter);
+        });
+    });
+
+    // Clickable Recurrence Cards
+    document.querySelectorAll('.rec-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const recVal = parseFloat(card.getAttribute('data-rec'));
+            
+            // 1. Set Status to Ruptura (since recurrence cards only consider Ruptura)
+            activeFilters = ['buy']; 
+            filterBtns.forEach(btn => {
+                if (btn.getAttribute('data-filter') === 'buy') btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
+
+            // 2. Toggle Recurrence Filter
+            if (activeRecFilter === recVal) {
+                activeRecFilter = null;
+                card.style.boxShadow = 'none';
+                card.style.borderColor = 'rgba(16,185,129,0.2)';
+            } else {
+                activeRecFilter = recVal;
+                document.querySelectorAll('.rec-card').forEach(c => {
+                    c.style.boxShadow = 'none';
+                    c.style.borderColor = 'rgba(16,185,129,0.2)';
+                });
+                card.style.boxShadow = '0 0 15px rgba(16, 185, 129, 0.4)';
+                card.style.borderColor = '#10b981';
+            }
+            
+            applyAllFilters();
         });
     });
 
@@ -1369,6 +1439,11 @@ document.addEventListener('DOMContentLoaded', () => {
         tableSearch.value = '';
         supplierSearch.value = '';
         activeBuyer = 'all';
+        activeRecFilter = null;
+        document.querySelectorAll('.rec-card').forEach(c => {
+            c.style.boxShadow = 'none';
+            c.style.borderColor = 'rgba(16,185,129,0.2)';
+        });
         buyerBtns.forEach(btn => {
             if (btn.getAttribute('data-buyer') === 'all') btn.classList.add('active');
             else btn.classList.remove('active');

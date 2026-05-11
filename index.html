@@ -128,26 +128,62 @@
                         🔮 Projeções de Ruptura (Capital)</div>
                     <div
                         style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; height: 100%;">
-                        <div class="stat-card urgent" id="risk-card">
+                        <div class="stat-card urgent clickable-card" id="risk-card" data-filter="buy" style="cursor: pointer;">
                             <span class="stat-label">Ruptura (1m)</span>
                             <span class="stat-value" id="to-buy-count">0</span>
                             <span class="stat-sub" id="buy-value"
                                 style="font-size: 0.85rem; color: var(--danger); margin-top: -2px; opacity: 0.8;">R$
                                 0,00</span>
                         </div>
-                        <div class="stat-card attention" id="attention-card-wrapper">
+                        <div class="stat-card attention clickable-card" id="attention-card-wrapper" data-filter="attention" style="cursor: pointer;">
                             <span class="stat-label">Atenção (2m)</span>
                             <span class="stat-value" id="attention-count">0</span>
                             <span class="stat-sub" id="attention-value"
                                 style="font-size: 0.85rem; color: #f97316; margin-top: -2px; opacity: 0.8;">R$
                                 0,00</span>
                         </div>
-                        <div class="stat-card warning" id="suggestion-card">
+                        <div class="stat-card warning clickable-card" id="suggestion-card" data-filter="suggest" style="cursor: pointer;">
                             <span class="stat-label">Sugestão (3m)</span>
                             <span class="stat-value" id="suggestion-count">0</span>
                             <span class="stat-sub" id="suggestion-value"
                                 style="font-size: 0.85rem; color: #eab308; margin-top: -2px; opacity: 0.8;">R$
                                 0,00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Group: Recorrência -->
+                <div
+                    style="display: flex; flex-direction: column; gap: 0.8rem; flex: 4; min-width: 600px; background: linear-gradient(180deg, rgba(16,185,129,0.06) 0%, transparent 100%); border: 1px solid rgba(16,185,129,0.15); border-radius: 16px; padding: 1.5rem; position: relative;">
+                    <div
+                        style="font-size: 0.85rem; color: #10b981; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; opacity: 0.9;">
+                        📈 Projeções por Recorrência (1m)</div>
+                    <div
+                        style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.8rem; height: 100%;">
+                        <div class="stat-card rec-card" data-rec="33" style="padding: 1rem; border-color: rgba(16,185,129,0.1); cursor: pointer;">
+                            <span class="stat-label" style="font-size: 0.75rem;">33%+</span>
+                            <span class="stat-value" id="rec-33-count" style="font-size: 1.5rem;">0</span>
+                            <span class="stat-sub" id="rec-33-value" style="font-size: 0.72rem; color: #10b981; margin-top: -2px;">R$ 0,00</span>
+                        </div>
+                        <div class="stat-card rec-card" data-rec="50" style="padding: 1rem; border-color: rgba(16,185,129,0.2); cursor: pointer;">
+                            <span class="stat-label" style="font-size: 0.75rem;">50%+</span>
+                            <span class="stat-value" id="rec-50-count" style="font-size: 1.5rem;">0</span>
+                            <span class="stat-sub" id="rec-50-value" style="font-size: 0.72rem; color: #10b981; margin-top: -2px;">R$ 0,00</span>
+                        </div>
+                        <div class="stat-card rec-card" data-rec="67" style="padding: 1rem; border-color: rgba(16,185,129,0.3); cursor: pointer;">
+                            <span class="stat-label" style="font-size: 0.75rem;">67%+</span>
+                            <span class="stat-value" id="rec-67-count" style="font-size: 1.5rem;">0</span>
+                            <span class="stat-sub" id="rec-67-value" style="font-size: 0.72rem; color: #10b981; margin-top: -2px;">R$ 0,00</span>
+                        </div>
+                        <div class="stat-card rec-card" data-rec="83" style="padding: 1rem; border-color: rgba(16,185,129,0.4); cursor: pointer;">
+                            <span class="stat-label" style="font-size: 0.75rem;">83%+</span>
+                            <span class="stat-value" id="rec-83-count" style="font-size: 1.5rem;">0</span>
+                            <span class="stat-sub" id="rec-83-value" style="font-size: 0.72rem; color: #10b981; margin-top: -2px;">R$ 0,00</span>
+                        </div>
+                        <div class="stat-card rec-card" data-rec="100" style="padding: 1rem; border-color: rgba(16,185,129,0.5); cursor: pointer;">
+                            <span class="stat-label" style="font-size: 0.75rem;">100%</span>
+                            <span class="stat-value" id="rec-100-count" style="font-size: 1.5rem;">0</span>
+                            <span class="stat-sub" id="rec-100-value" style="font-size: 0.72rem; color: #10b981; margin-top: -2px;">R$ 0,00</span>
                         </div>
                     </div>
                 </div>
@@ -422,6 +458,24 @@
                             <code>(Disp. &lt; Vendas Médias * 3) AND (Recorrência &gt; 33%)</code><br><br>
                             <strong>💰 Capital Alvo Projetado:</strong><br>
                             <code>Média Venda × 3 meses × Preço de Reposição</code>
+                        </div>
+                    </div>
+
+                    <h3
+                        style="grid-column: 1 / -1; font-size: 1.3rem; color: #10b981; border-bottom: 1px solid rgba(16, 185, 129, 0.3); padding-bottom: 0.5rem; margin-top: 1rem;">
+                        📈 Fidelidade e Estabilidade (Recorrência)</h3>
+
+                    <div class="rule-card" style="grid-column: 1 / -1; background: rgba(16, 185, 129, 0.05); border-color: rgba(16, 185, 129, 0.3);">
+                        <span class="badge" style="background: var(--success); color: white; margin-bottom: 10px; display: inline-block;">🛡️ SEGURANÇA NA COMPRA</span>
+                        <h3>Projeção por Faixas de Recorrência</h3>
+                        <p>Esta análise segmenta o <strong>Capital em Risco (1m)</strong> de acordo com a frequência de venda dos itens. Quanto maior a recorrência, mais "certa" é a necessidade daquela compra.</p>
+                        <div class="rule-math" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div>
+                                <strong>✅ Recorrência 100%:</strong> Itens que venderam em TODOS os meses analisados. Prioridade máxima.
+                            </div>
+                            <div>
+                                <strong>📊 Faixas Intermediárias:</strong> Permite priorizar o capital em itens com giro mais estável (83%, 67%, etc).
+                            </div>
                         </div>
                     </div>
 
