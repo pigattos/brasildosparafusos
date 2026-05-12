@@ -716,6 +716,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                                 <span class="stock-value">${rel.estoque} <small>${rel.un}</small></span>
                                                 <span class="stock-label">Em Estoque</span>
                                             </div>
+                                            <div class="economic-coverage">
+                                                ${renderDiasEstoque(rel.diasEstoque)}
+                                            </div>
                                         </div>
                                     `).join('')}
                                 </div>

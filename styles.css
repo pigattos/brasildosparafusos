@@ -2096,7 +2096,7 @@ body.loading-active {
     display: flex;
     flex-direction: column;
     margin-left: auto;
-    margin-right: 20px;
+    margin-right: 12px;
 }
 
 .cost-value {
@@ -2116,6 +2116,15 @@ body.loading-active {
     display: flex;
     align-items: center;
     gap: 8px;
+    min-width: 100px;
+    justify-content: flex-end;
+}
+
+.economic-coverage {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 90px;
 }
 
 .stock-value {
