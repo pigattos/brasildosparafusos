@@ -2004,3 +2004,129 @@ body.loading-active {
     transition: all 0.3s ease;
 }
 
+/* Similar Items / Economic Option - Discrete Version (Blue) */
+.economic-option {
+    background: rgba(56, 189, 248, 0.03);
+    border: 1px dashed rgba(56, 189, 248, 0.3) !important;
+    border-radius: 8px;
+    padding: 10px 12px !important;
+    box-shadow: none;
+    max-width: fit-content;
+}
+
+.economic-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.economic-icon {
+    font-size: 1rem;
+    background: none;
+    width: auto;
+    height: auto;
+    border: none;
+}
+
+.economic-titles {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.economic-badge {
+    font-size: 0.65rem;
+    font-weight: 800;
+    color: #38bdf8;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.economic-subtitle {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.economic-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.economic-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    gap: 20px;
+}
+
+.economic-row:hover {
+    background: rgba(56, 189, 248, 0.05);
+    border-color: rgba(56, 189, 248, 0.2);
+    transform: none;
+}
+
+.economic-info {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+}
+
+.economic-name {
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.8rem;
+}
+
+.economic-code {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    opacity: 0.9;
+}
+
+.economic-cost {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    margin-left: auto;
+    margin-right: 20px;
+}
+
+.cost-value {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.cost-label {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.economic-stock {
+    text-align: right;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.stock-value {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #38bdf8;
+}
+
+.stock-label {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+

@@ -546,6 +546,30 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
+        // --- NOVO: Mapeamento de Itens Similares (ZB/ZA -> POL/OX) ---
+        const descMap = {};
+        processed.forEach(item => {
+            // Remove sufixos comuns para encontrar a base da descrição
+            const base = item.descricao.replace(/\s(ZB|ZA|OX|POL|POLIDO|ZINCADO\sBRANCO|ZINCADO\sAMARELO)$/i, '').trim().toUpperCase();
+            item.baseDesc = base;
+            if (!descMap[base]) descMap[base] = [];
+            descMap[base].push(item);
+        });
+
+        processed.forEach(item => {
+            const upperDesc = item.descricao.toUpperCase();
+            const isZinc = /\s(ZB|ZA|ZINCADO\sBRANCO|ZINCADO\sAMARELO)$/i.test(upperDesc);
+            
+            if (isZinc) {
+                // Filtra itens que têm a mesma base mas são POL ou OX
+                item.relatedItems = descMap[item.baseDesc].filter(other => {
+                    if (other.produto === item.produto) return false;
+                    const otherUpper = other.descricao.toUpperCase();
+                    return /\s(POL|OX|POLIDO)$/i.test(otherUpper);
+                });
+            }
+        });
+
         console.log(`Itens Processados: ${processed.length}`);
         return processed;
     }
@@ -642,34 +666,70 @@ document.addEventListener('DOMContentLoaded', () => {
             detailTr.innerHTML = `
                 <td colspan="10">
                     <div class="row-details">
-                        <div class="detail-item">
-                            <span class="detail-label">Encomendas</span>
-                            <span class="detail-value">${item.encomendas}</span>
+                        <div style="display: flex; flex-direction: column; gap: 1.5rem; flex: 1 1 600px;">
+                            <div style="display: flex; flex-wrap: wrap; gap: 2rem;">
+                                <div class="detail-item">
+                                    <span class="detail-label">Encomendas</span>
+                                    <span class="detail-value">${item.encomendas}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Média Venda</span>
+                                    <span class="detail-value">
+                                        ${item.medVenda}
+                                        ${item.tendencia === 'up' ? '<span class="trend-indicator trend-up" style="margin-left:5px;">▲</span>' : 
+                                          item.tendencia === 'down' ? '<span class="trend-indicator trend-down" style="margin-left:5px;">▼</span>' : ''}
+                                    </span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Cobertura de Estoque</span>
+                                    <span class="detail-value">
+                                        ${renderDiasEstoque(item.diasEstoque)}
+                                    </span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">Custo Unit.</span>
+                                    <span class="detail-value">${item.custo}</span>
+                                </div>
+                            </div>
+
+                            ${item.relatedItems && item.relatedItems.length > 0 ? `
+                            <div class="detail-item economic-option" style="margin-top: 0;">
+                                <div class="economic-header">
+                                    <span class="economic-icon">💡</span>
+                                    <div class="economic-titles">
+                                        <span class="economic-badge">Opção Econômica</span>
+                                        <span class="economic-subtitle">(Versão Polida/OX)</span>
+                                    </div>
+                                </div>
+                                <div class="economic-list">
+                                    ${item.relatedItems.map(rel => `
+                                        <div class="economic-row">
+                                            <div class="economic-info">
+                                                <span class="economic-name">${rel.descricao}</span>
+                                                <span class="economic-code">Cód: ${rel.produto}</span>
+                                            </div>
+                                            <div class="economic-cost">
+                                                <span class="cost-value">${rel.custo}</span>
+                                                <span class="cost-label">Custo Unit.</span>
+                                            </div>
+                                            <div class="economic-stock">
+                                                <span class="stock-value">${rel.estoque} <small>${rel.un}</small></span>
+                                                <span class="stock-label">Em Estoque</span>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                            ` : ''}
                         </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Média Venda</span>
-                            <span class="detail-value">
-                                ${item.medVenda}
-                                ${item.tendencia === 'up' ? '<span class="trend-indicator trend-up" style="margin-left:5px;">▲</span>' : 
-                                  item.tendencia === 'down' ? '<span class="trend-indicator trend-down" style="margin-left:5px;">▼</span>' : ''}
-                            </span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Cobertura de Estoque</span>
-                            <span class="detail-value">
-                                ${renderDiasEstoque(item.diasEstoque)}
-                            </span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Custo Unit.</span>
-                            <span class="detail-value">${item.custo}</span>
-                        </div>
+
                         <div class="detail-item sparkline-detail">
                             <span class="detail-label">Histórico Vendas (Mensal)</span>
                             <div class="sparkline-container">
                                 ${generateSparkline(item.historico, item.monthLabels)}
                             </div>
                         </div>
+
                         <div class="detail-item" style="border-top:1px solid var(--border-color); padding-top:10px; width:100%;">
                             <span class="detail-label">Mapeamento de Dados (Debug)</span>
                             <span class="detail-value" style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;">
