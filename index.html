@@ -233,7 +233,6 @@
             <section class="data-section" id="data-section">
                 <!-- Welcome/Changelog board (Replaces Dropzone) -->
                 <div class="welcome-board" id="drop-zone">
-                    <div class="welcome-watermark">Desenvolvido por Cassyano</div>
                     <div class="welcome-content">
                         <div class="welcome-header">
                             <div class="main-welcome-logo">
@@ -241,106 +240,96 @@
                                 <span class="company-name">Brasil dos Parafusos</span>
                             </div>
                             <h2>Bem-vindo ao Gestor de Estoque</h2>
-                            <p>Siga o fluxo abaixo para iniciar sua análise estratégica</p>
+                            <p>Siga o fluxo de importação para iniciar sua análise estratégica.</p>
                         </div>
 
-                        <div class="workflow-steps" style="max-width: 1000px;">
-                            <!-- Nova Seção de Destaque: Análise de Rupturas -->
-                            <div class="featured-wip-card">
-                                <div class="wip-status">
-                                    <span class="pulse-dot"></span>
-                                    PROJETO EM ANDAMENTO
-                                </div>
-                                <div class="featured-content">
-                                    <div class="featured-icon-wrapper">
-                                        <span class="featured-icon">📉</span>
-                                        <div class="icon-glow"></div>
-                                    </div>
-                                    <div class="featured-info">
-                                        <h3>Funcionalidade em Foco: <span>Análise de Rupturas</span></h3>
-                                        <p>Estamos construindo uma nova camada estratégica para o sistema. Em breve, você terá acesso a um detalhamento profundo de <strong>itens e valores</strong>, permitindo identificar exatamente onde o capital está em risco e quais rupturas são prioritárias.</p>
-                                        <div class="featured-tags">
-                                            <span class="f-tag">💎 Detalhamento por Item</span>
-                                            <span class="f-tag">💰 Análise de Valor Financeiro</span>
-                                            <span class="f-tag">📈 Projeção de Impacto</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="benefits-container">
-                            <h3 style="color: var(--primary); font-size: 1.2rem; text-align: center; margin-bottom: 2rem;">
-                                ✨ Atualizações Recentes do seu Sistema 🚀</h3>
+                        <div class="benefits-container" style="margin: 2rem auto; width: 100%; max-width: 900px; display: flex; flex-direction: column; align-items: center;">
+                            <h3 style="color: #fff; font-size: 1.1rem; font-weight: 500; text-align: center; margin-bottom: 2.5rem; font-family: 'Outfit', sans-serif; letter-spacing: 2px; opacity: 0.8; text-transform: uppercase;">
+                                🗺️ Mapa de Funcionalidades
+                            </h3>
                             
-                            <div class="changelog-grid" style="grid-template-columns: 1fr; margin-top: 1rem;">
-                                <!-- Container Principal Premium -->
-                                <div style="display: flex; gap: 3rem; align-items: flex-start; flex-wrap: wrap;">
-                                    
-                                    <!-- Coluna de Título (Esquerda) -->
-                                    <div style="flex: 1; min-width: 300px; text-align: left;">
-                                        <h3 style="font-size: 1.8rem; font-weight: 700; color: #fff; margin-bottom: 1rem; font-family: 'Outfit', sans-serif;">
-                                            Análise de Entradas <span style="color: #3b82f6;">•</span>
-                                        </h3>
-                                        <p style="font-size: 1.05rem; color: #94a3b8; line-height: 1.7; margin-bottom: 2rem;">
-                                            Uma nova camada de inteligência para o seu setor de compras. Monitore volumes, performance e tendências em uma interface desenhada para alta performance.
-                                        </p>
-                                        <div style="height: 2px; width: 60px; background: #3b82f6; border-radius: 2px;"></div>
-                                    </div>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem; width: 100%; justify-content: center;">
+                                <!-- Coluna Concluídos -->
+                                <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(16, 185, 129, 0.1); border-radius: 20px; padding: 2rem; backdrop-filter: blur(10px); transition: all 0.3s ease;">
+                                    <h4 style="color: #10b981; font-size: 0.75rem; letter-spacing: 2px; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px; font-family: 'Outfit', sans-serif; font-weight: 700; opacity: 0.9;">
+                                        <span style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);"></span> CONCLUÍDO
+                                    </h4>
+                                    <ul style="list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.9rem;">
+                                        <li style="display: flex; gap: 12px; font-size: 0.85rem; color: #cbd5e1; line-height: 1.4;">
+                                            <i class="fas fa-check" style="color: #10b981; font-size: 0.7rem; margin-top: 4px;"></i>
+                                            <div><strong>Dashboard de Ruptura:</strong> Alertas críticos e cobertura de estoque.</div>
+                                        </li>
+                                        <li style="display: flex; gap: 12px; font-size: 0.85rem; color: #cbd5e1; line-height: 1.4;">
+                                            <i class="fas fa-check" style="color: #10b981; font-size: 0.7rem; margin-top: 4px;"></i>
+                                            <div><strong>Gestão de Capital:</strong> Cálculo de valor para reposição imediata.</div>
+                                        </li>
+                                        <li style="display: flex; gap: 12px; font-size: 0.85rem; color: #cbd5e1; line-height: 1.4;">
+                                            <i class="fas fa-check" style="color: #10b981; font-size: 0.7rem; margin-top: 4px;"></i>
+                                            <div><strong>Fidelidade e Giro:</strong> Análise de recorrência (17% a 100%).</div>
+                                        </li>
+                                        <li style="display: flex; gap: 12px; font-size: 0.85rem; color: #cbd5e1; line-height: 1.4;">
+                                            <i class="fas fa-check" style="color: #10b981; font-size: 0.7rem; margin-top: 4px;"></i>
+                                            <div><strong>Análise de Entradas:</strong> Recebimentos e performance operacional.</div>
+                                        </li>
+                                        <li style="display: flex; gap: 12px; font-size: 0.85rem; color: #cbd5e1; line-height: 1.4;">
+                                            <i class="fas fa-check" style="color: #10b981; font-size: 0.7rem; margin-top: 4px;"></i>
+                                            <div><strong>Filtros Avançados:</strong> Seleção múltipla via modal inteligente.</div>
+                                        </li>
+                                        <li style="display: flex; gap: 12px; font-size: 0.85rem; color: #cbd5e1; line-height: 1.4;">
+                                            <i class="fas fa-check" style="color: #10b981; font-size: 0.7rem; margin-top: 4px;"></i>
+                                            <div><strong>Exportação:</strong> Gerador de planilhas formatadas para ERP.</div>
+                                        </li>
+                                    </ul>
+                                </div>
 
-                                    <!-- Coluna de Features (Direita) -->
-                                    <div style="flex: 2; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem;">
-                                        
-                                        <!-- Feature 1 -->
-                                        <div class="feature-card-premium" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); padding: 1.5rem; border-radius: 12px; transition: all 0.3s ease;">
-                                            <i class="fas fa-wallet" style="color: #3b82f6; margin-bottom: 1rem; display: block; font-size: 1.2rem;"></i>
-                                            <h4 style="font-size: 0.9rem; color: #f8fafc; margin-bottom: 8px; font-weight: 600;">Controle Financeiro</h4>
-                                            <p style="font-size: 0.8rem; color: #94a3b8; line-height: 1.5;">Visão consolidada do volume total de recebimento por período.</p>
-                                        </div>
-
-                                        <!-- Feature 2 -->
-                                        <div class="feature-card-premium" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); padding: 1.5rem; border-radius: 12px; transition: all 0.3s ease;">
-                                            <i class="fas fa-handshake" style="color: #3b82f6; margin-bottom: 1rem; display: block; font-size: 1.2rem;"></i>
-                                            <h4 style="font-size: 0.9rem; color: #f8fafc; margin-bottom: 8px; font-weight: 600;">Fornecedores</h4>
-                                            <p style="font-size: 0.8rem; color: #94a3b8; line-height: 1.5;">Análise de performance individual e ticket médio estratégico.</p>
-                                        </div>
-
-                                        <!-- Feature 3 -->
-                                        <div class="feature-card-premium" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); padding: 1.5rem; border-radius: 12px; transition: all 0.3s ease;">
-                                            <i class="fas fa-chart-line" style="color: #3b82f6; margin-bottom: 1rem; display: block; font-size: 1.2rem;"></i>
-                                            <h4 style="font-size: 0.9rem; color: #f8fafc; margin-bottom: 8px; font-weight: 600;">Tendências</h4>
-                                            <p style="font-size: 0.8rem; color: #94a3b8; line-height: 1.5;">Novos indicadores de subida/descida (Mês contra Mês) para identificar variações de performance.</p>
-                                        </div>
-
-                                        <!-- Feature 4 -->
-                                        <div class="feature-card-premium" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); padding: 1.5rem; border-radius: 12px; transition: all 0.3s ease;">
-                                            <i class="fas fa-cloud-upload-alt" style="color: #3b82f6; margin-bottom: 1rem; display: block; font-size: 1.2rem;"></i>
-                                            <h4 style="font-size: 0.9rem; color: #f8fafc; margin-bottom: 8px; font-weight: 600;">OneDrive Sync</h4>
-                                            <p style="font-size: 0.8rem; color: #94a3b8; line-height: 1.5;">Integração nativa para sincronização automática de notas.</p>
-                                        </div>
-
+                                <!-- Coluna Em Construção -->
+                                <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(59, 130, 246, 0.1); border-radius: 20px; padding: 2rem; backdrop-filter: blur(10px); opacity: 0.9;">
+                                    <h4 style="color: #3b82f6; font-size: 0.75rem; letter-spacing: 2px; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 10px; font-family: 'Outfit', sans-serif; font-weight: 700; opacity: 0.9;">
+                                        <span style="width: 8px; height: 8px; background: #3b82f6; border-radius: 50%; box-shadow: 0 0 12px rgba(59, 130, 246, 0.5);"></span> EM CONSTRUÇÃO
+                                    </h4>
+                                    <ul style="list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.9rem;">
+                                        <li style="display: flex; gap: 12px; font-size: 0.85rem; color: #94a3b8; line-height: 1.4;">
+                                            <i class="fas fa-circle-notch fa-spin" style="color: #3b82f6; font-size: 0.7rem; margin-top: 4px;"></i>
+                                            <div><strong>Módulo Detalhado:</strong> Visão item a item com impacto financeiro.</div>
+                                        </li>
+                                        <li style="display: flex; gap: 12px; font-size: 0.85rem; color: #94a3b8; line-height: 1.4;">
+                                            <i class="fas fa-history" style="color: #3b82f6; font-size: 0.7rem; margin-top: 4px;"></i>
+                                            <div><strong>Histórico e Evolução:</strong> Timeline mensal da saúde do estoque.</div>
+                                        </li>
+                                        <li style="display: flex; gap: 12px; font-size: 0.85rem; color: #94a3b8; line-height: 1.4;">
+                                            <i class="fas fa-exchange-alt" style="color: #3b82f6; font-size: 0.7rem; margin-top: 4px;"></i>
+                                            <div><strong>Sugestão de Substitutos:</strong> Cruzamento de itens equivalentes.</div>
+                                        </li>
+                                        <li style="display: flex; gap: 12px; font-size: 0.85rem; color: #94a3b8; line-height: 1.4;">
+                                            <i class="fas fa-sync" style="color: #3b82f6; font-size: 0.7rem; margin-top: 4px;"></i>
+                                            <div><strong>OneDrive Sync:</strong> Sincronização automática de relatórios.</div>
+                                        </li>
+                                    </ul>
+                                    <div style="margin-top: 2rem; padding: 0.8rem; background: rgba(59, 130, 246, 0.05); border-radius: 12px; font-size: 0.7rem; color: #60a5fa; text-align: center; border: 1px solid rgba(59, 130, 246, 0.1);">
+                                        🚀 Atualizações de precisão semanais.
                                     </div>
                                 </div>
                             </div>
-
-
-
                         </div>
                     </div>
                 </div>
 
                 <!-- Table Container -->
                 <div class="table-container" id="table-container" style="display: none;">
+                    <div id="active-filters-tags" class="active-filters-tags"></div>
                     <div class="table-toolbar">
-                        <div class="search-group" style="display: flex; gap: 1rem; flex: 1;">
+                        <div class="search-group">
                             <div class="search-box">
                                 <span class="search-icon">🔍</span>
                                 <input type="text" id="table-search" placeholder="Buscar produto...">
                             </div>
                             <div class="search-box">
-                                <span class="search-icon">🏢</span>
-                                <input type="text" id="supplier-search" placeholder="Filtrar fornecedor...">
+                                <span class="search-icon">🧠</span>
+                                <input type="text" id="smart-desc-search" placeholder="Busca Inteligente (Descrição, Código ou Fornecedor)...">
                             </div>
+                            <button id="open-supplier-modal" class="filter-btn">
+                                <i class="fas fa-truck"></i> Selecionar Fornecedores
+                            </button>
                             <div class="buyer-selector">
                                 <button class="buyer-btn active" data-buyer="all">👤 Todos</button>
                                 <button class="buyer-btn" data-buyer="Cassyano">Cassyano</button>
@@ -353,12 +342,12 @@
                             <button class="filter-btn" data-filter="attention">⚡ Atenção</button>
                             <button class="filter-btn" data-filter="suggest">⚠️ Sugestão</button>
                             <button class="filter-btn" data-filter="has-order">📦 Com Encomenda</button>
-                            <button class="btn btn-secondary" id="clear-filters"
-                                style="font-size: 0.8rem; padding: 0.5rem 1rem;">
-                                🧹 Limpar Filtros
-                            </button>
-                            <div class="export-group">
-                                <button class="btn-export" id="export-btn">
+                            
+                            <div class="action-group">
+                                <button class="filter-btn" id="clear-filters">
+                                    🧹 Limpar Filtros
+                                </button>
+                                <button class="filter-btn active" id="export-btn">
                                     📊 Exportar Lista Filtrada
                                 </button>
                             </div>
@@ -531,6 +520,31 @@
     <!-- Scripts -->
     <script src="app.js?v=2.3.1"></script>
 
+    <!-- Supplier Selection Modal -->
+    <div id="supplier-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 500px; max-height: 80vh; display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <h2><i class="fas fa-truck"></i> Selecionar Fornecedores</h2>
+                <button class="close-btn" id="close-supplier-modal">&times;</button>
+            </div>
+            <div class="modal-body" style="flex: 1; overflow-y: hidden; display: flex; flex-direction: column;">
+                <div class="modal-search" style="position: relative; margin-bottom: 15px;">
+                    <i class="fas fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #9ca3af;"></i>
+                    <input type="text" id="modal-supplier-search" placeholder="Procurar fornecedor na lista..." style="width: 100%; padding: 10px 10px 10px 35px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: white;">
+                </div>
+                <div class="modal-actions" style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <button id="btn-select-all-suppliers" style="padding: 6px 12px; font-size: 11px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: #9ca3af; border-radius: 4px; cursor: pointer;">Selecionar Todos</button>
+                    <button id="btn-clear-all-suppliers" style="padding: 6px 12px; font-size: 11px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: #9ca3af; border-radius: 4px; cursor: pointer;">Limpar Todos</button>
+                </div>
+                <div id="supplier-checklist" style="flex: 1; overflow-y: auto; padding-right: 5px; display: flex; flex-direction: column; gap: 8px;">
+                    <!-- Checkboxes generated by JS -->
+                </div>
+            </div>
+            <div class="modal-footer" style="padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: flex-end;">
+                <button id="apply-supplier-filter" class="btn btn-primary">Aplicar Filtros</button>
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>

@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tableContainer = document.getElementById('table-container');
     const tableBody = document.getElementById('table-body');
     const tableSearch = document.getElementById('table-search');
-    const supplierSearch = document.getElementById('supplier-search');
+    const smartSearch = document.getElementById('smart-desc-search');
     const buyerBtns = document.querySelectorAll('.buyer-btn');
     const buyerUpload = document.getElementById('buyer-upload');
     const filterBtns = document.querySelectorAll('.filter-btn');
@@ -14,6 +14,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const chartSection = document.getElementById('chart-section');
     const loadingOverlay = document.getElementById('loading-overlay');
     const folderUpload = document.getElementById('folder-upload');
+    const supplierModal = document.getElementById('supplier-modal');
+    const openSupplierModalBtn = document.getElementById('open-supplier-modal');
+    const closeSupplierModalBtn = document.getElementById('close-supplier-modal');
+    const applySupplierFilterBtn = document.getElementById('apply-supplier-filter');
+    const supplierChecklist = document.getElementById('supplier-checklist');
+    const modalSupplierSearch = document.getElementById('modal-supplier-search');
+    const btnSelectAllSuppliers = document.getElementById('btn-select-all-suppliers');
+    const btnClearAllSuppliers = document.getElementById('btn-clear-all-suppliers');
 
     // --- Loading Control ---
     function showLoading() {
@@ -61,6 +69,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let myChart = null;
     let supplierChart = null;
     let groupChart = null;
+    let selectedSuppliers = [];
+    let selectedGroups = [];
+    let fixedSupplierLabels = [];
+    let fixedGroupLabels = [];
 
     let buyerMap = JSON.parse(localStorage.getItem('buyerMap') || '{}');
     console.log(`Mapeamento de compradores carregado: ${Object.keys(buyerMap).length} códigos.`);
@@ -546,11 +558,16 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        // --- NOVO: Mapeamento de Itens Similares (ZB/ZA -> POL/OX) ---
+        // --- NOVO: Mapeamento de Itens Similares e Nacional (ZB/ZA -> POL/OX e " I" -> Nacional) ---
         const descMap = {};
+        const fullDescMap = {}; // Mapeamento por descrição completa para encontrar o nacional
         processed.forEach(item => {
+            const upperDesc = item.descricao.toUpperCase();
+            if (!fullDescMap[upperDesc]) fullDescMap[upperDesc] = [];
+            fullDescMap[upperDesc].push(item);
+
             // Remove sufixos comuns para encontrar a base da descrição
-            const base = item.descricao.replace(/\s(ZB|ZA|OX|POL|POLIDO|ZINCADO\sBRANCO|ZINCADO\sAMARELO)$/i, '').trim().toUpperCase();
+            const base = item.descricao.replace(/\s(ZB|ZA|OX|POL|POLIDO|ZINCADO\sBRANCO|ZINCADO\sAMARELO)(\sI)?$/i, '').trim().toUpperCase();
             item.baseDesc = base;
             if (!descMap[base]) descMap[base] = [];
             descMap[base].push(item);
@@ -558,13 +575,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
         processed.forEach(item => {
             const upperDesc = item.descricao.toUpperCase();
-            const isZinc = /\s(ZB|ZA|ZINCADO\sBRANCO|ZINCADO\sAMARELO)$/i.test(upperDesc);
+            
+            // 1. Lógica para Equivalente Nacional (Se termina em " I")
+            if (upperDesc.endsWith(' I')) {
+                const nationalDesc = upperDesc.substring(0, upperDesc.length - 2).trim();
+                if (fullDescMap[nationalDesc]) {
+                    item.nationalEquivalent = fullDescMap[nationalDesc];
+                }
+            }
+
+            // 2. Lógica para Opção Econômica (ZB/ZA -> POL/OX)
+            const isZinc = /\s(ZB|ZA|ZINCADO\sBRANCO|ZINCADO\sAMARELO)(\sI)?$/i.test(upperDesc);
             
             if (isZinc) {
                 // Filtra itens que têm a mesma base mas são POL ou OX
                 item.relatedItems = descMap[item.baseDesc].filter(other => {
                     if (other.produto === item.produto) return false;
                     const otherUpper = other.descricao.toUpperCase();
+                    // Deve ser POL ou OX e ter o mesmo status de importação (ou ambos serem nacionais/importados)
+                    // Para simplificar, focamos em ser POL/OX
                     return /\s(POL|OX|POLIDO)$/i.test(otherUpper);
                 });
             }
@@ -718,6 +747,39 @@ document.addEventListener('DOMContentLoaded', () => {
                                             </div>
                                             <div class="economic-coverage">
                                                 ${renderDiasEstoque(rel.diasEstoque)}
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                            ` : ''}
+
+                            ${item.nationalEquivalent && item.nationalEquivalent.length > 0 ? `
+                            <div class="detail-item national-option" style="margin-top: 0;">
+                                <div class="economic-header">
+                                    <span class="economic-icon">🇧🇷</span>
+                                    <div class="economic-titles">
+                                        <span class="national-badge">Equivalente Nacional</span>
+                                        <span class="economic-subtitle">(Sugestão sem "I")</span>
+                                    </div>
+                                </div>
+                                <div class="economic-list">
+                                    ${item.nationalEquivalent.map(nat => `
+                                        <div class="economic-row national">
+                                            <div class="economic-info">
+                                                <span class="economic-name">${nat.descricao}</span>
+                                                <span class="economic-code">Cód: ${nat.produto}</span>
+                                            </div>
+                                            <div class="economic-cost">
+                                                <span class="cost-value">${nat.custo}</span>
+                                                <span class="cost-label">Custo Unit.</span>
+                                            </div>
+                                            <div class="economic-stock">
+                                                <span class="stock-value">${nat.estoque} <small>${nat.un}</small></span>
+                                                <span class="stock-label">Em Estoque</span>
+                                            </div>
+                                            <div class="economic-coverage">
+                                                ${renderDiasEstoque(nat.diasEstoque)}
                                             </div>
                                         </div>
                                     `).join('')}
@@ -1004,10 +1066,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 currentData = processData(json);
-                filteredData = [...currentData];
+                initFixedCharts(currentData);
                 
                 showDashboard();
-                renderTable(filteredData);
+                applyAllFilters();
                 
                 // Pequeno delay para garantir que o DOM renderizou antes de tirar o loading
                 setTimeout(hideLoading, 500);
@@ -1081,6 +1143,26 @@ document.addEventListener('DOMContentLoaded', () => {
         statsSection.style.display = 'flex';
         document.getElementById('criteria-legend').style.display = 'flex';
         tableContainer.style.display = 'block';
+    }
+
+    function initFixedCharts(data) {
+        const supplierStats = {};
+        data.filter(i => i.situacao !== 'seguro').forEach(i => {
+            supplierStats[i.fornecedor] = (supplierStats[i.fornecedor] || 0) + 1;
+        });
+        fixedSupplierLabels = Object.entries(supplierStats)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 15)
+            .map(s => s[0]);
+
+        const groupStats = {};
+        data.filter(i => i.situacao !== 'seguro').forEach(i => {
+            groupStats[i.grupo] = (groupStats[i.grupo] || 0) + 1;
+        });
+        fixedGroupLabels = Object.entries(groupStats)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 15)
+            .map(g => g[0]);
     }
 
     function updateChart(data) {
@@ -1188,28 +1270,24 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // --- Supplier Line Chart Logic ---
+        // --- Supplier Bar Chart ---
         const supplierCtx = document.getElementById('supplier-risk-chart').getContext('2d');
         
-        // Group and count suggestions by supplier (items in Ruptura OR Suggestion)
-        const supplierStats = {};
+        const currentSuppStats = {};
         data.filter(i => i.situacao !== 'seguro').forEach(i => {
-            supplierStats[i.fornecedor] = (supplierStats[i.fornecedor] || 0) + 1;
+            currentSuppStats[i.fornecedor] = (currentSuppStats[i.fornecedor] || 0) + 1;
         });
 
-        // Top 15 Suppliers by count
-        const sortedSuppliers = Object.entries(supplierStats)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 15);
-
         const supplierChartData = {
-            labels: sortedSuppliers.map(s => s[0]),
+            labels: fixedSupplierLabels,
             datasets: [{
                 label: 'Sugerido/Risco',
-                data: sortedSuppliers.map(s => s[1]),
-                backgroundColor: 'rgba(99, 102, 241, 0.4)',
+                data: fixedSupplierLabels.map(label => currentSuppStats[label] || 0),
+                backgroundColor: fixedSupplierLabels.map(label => 
+                    selectedSuppliers.includes(label) ? '#818cf8' : 'rgba(99, 102, 241, 0.4)'
+                ),
                 borderColor: '#6366f1',
-                borderWidth: 1,
+                borderWidth: 2,
                 borderRadius: 5,
             }]
         };
@@ -1225,12 +1303,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     indexAxis: 'y',
                     responsive: true,
                     maintainAspectRatio: false,
-                    onClick: (e, elements) => {
+                    onClick: (e) => {
+                        const elements = supplierChart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, false);
+                        let label = null;
+
                         if (elements.length > 0) {
                             const index = elements[0].index;
-                            const label = supplierChart.data.labels[index];
-                            supplierSearch.value = label;
-                            supplierSearch.dispatchEvent(new Event('input'));
+                            label = supplierChart.data.labels[index];
+                        } else {
+                            // Se não clicou na barra, verifica se clicou no label (texto) à esquerda
+                            const yAxis = supplierChart.scales.y;
+                            if (e.x <= supplierChart.chartArea.left) {
+                                const yValue = yAxis.getValueForPixel(e.y);
+                                if (yValue >= 0 && yValue < supplierChart.data.labels.length) {
+                                    const index = Math.round(yValue);
+                                    label = supplierChart.data.labels[index];
+                                }
+                            }
+                        }
+
+                        if (label) {
+                            if (selectedSuppliers.includes(label)) {
+                                selectedSuppliers = selectedSuppliers.filter(s => s !== label);
+                            } else {
+                                selectedSuppliers.push(label);
+                            }
+                            applyAllFilters();
                         }
                     },
                     onHover: (event, chartElement) => {
@@ -1267,23 +1365,21 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- Group Bar Chart (Horizontal) ---
         const groupCtx = document.getElementById('group-bar-chart').getContext('2d');
         
-        const groupStats = {};
+        const currentGroupStats = {};
         data.filter(i => i.situacao !== 'seguro').forEach(i => {
-            groupStats[i.grupo] = (groupStats[i.grupo] || 0) + 1;
+            currentGroupStats[i.grupo] = (currentGroupStats[i.grupo] || 0) + 1;
         });
 
-        const sortedGroups = Object.entries(groupStats)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 15);
-
         const groupDataDetails = {
-            labels: sortedGroups.map(g => g[0]),
+            labels: fixedGroupLabels,
             datasets: [{
                 label: 'Sugerido/Risco',
-                data: sortedGroups.map(g => g[1]),
-                backgroundColor: 'rgba(245, 158, 11, 0.4)',
+                data: fixedGroupLabels.map(label => currentGroupStats[label] || 0),
+                backgroundColor: fixedGroupLabels.map(label => 
+                    selectedGroups.includes(label) ? '#f59e0b' : 'rgba(245, 158, 11, 0.4)'
+                ),
                 borderColor: '#f59e0b',
-                borderWidth: 1,
+                borderWidth: 2,
                 borderRadius: 5,
             }]
         };
@@ -1299,13 +1395,31 @@ document.addEventListener('DOMContentLoaded', () => {
                     indexAxis: 'y',
                     responsive: true,
                     maintainAspectRatio: false,
-                    onClick: (e, elements) => {
+                    onClick: (e) => {
+                        const elements = groupChart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, false);
+                        let label = null;
+
                         if (elements.length > 0) {
                             const index = elements[0].index;
-                            const label = groupChart.data.labels[index];
-                            tableSearch.value = label;
-                            // Trigger the input event to update everything
-                            tableSearch.dispatchEvent(new Event('input'));
+                            label = groupChart.data.labels[index];
+                        } else {
+                            const yAxis = groupChart.scales.y;
+                            if (e.x <= groupChart.chartArea.left) {
+                                const yValue = yAxis.getValueForPixel(e.y);
+                                if (yValue >= 0 && yValue < groupChart.data.labels.length) {
+                                    const index = Math.round(yValue);
+                                    label = groupChart.data.labels[index];
+                                }
+                            }
+                        }
+
+                        if (label) {
+                            if (selectedGroups.includes(label)) {
+                                selectedGroups = selectedGroups.filter(g => g !== label);
+                            } else {
+                                selectedGroups.push(label);
+                            }
+                            applyAllFilters();
                         }
                     },
                     onHover: (event, chartElement) => {
@@ -1354,46 +1468,69 @@ document.addEventListener('DOMContentLoaded', () => {
     function applyAllFilters() {
         updateRecurrenceVisibility();
         const prodTerm = tableSearch.value.toLowerCase();
-        const suppTerm = supplierSearch.value.toLowerCase();
-        filteredData = currentData.filter(i => {
-            const cleanProd = i.produto.toString().replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-            const cleanTerm = prodTerm.replace(/[^a-zA-Z0-9]/g, '');
-            const matchProd = cleanProd.includes(cleanTerm) || 
-                              i.grupo.toString().toLowerCase().includes(prodTerm) ||
-                              i.descricao.toString().toLowerCase().includes(prodTerm);
-            
-            const matchSupp = i.fornecedor.toString().toLowerCase().includes(suppTerm);
+        const smartTerm = smartSearch.value.toLowerCase().trim();
+        const keywords = smartTerm.split(/\s+/).filter(k => k.length > 0);
+
+        // 1. Filtros de Contexto (Comprador, Status, Recorrência) - Afetam Tabela e Gráfico
+        const matchesContext = (i) => {
             const matchBuyer = activeBuyer === 'all' || i.comprador.toLowerCase() === activeBuyer.toLowerCase();
             
-            // 3. Filter by Recurrence Bracket (if set, usually for Ruptura)
             let matchRec = true;
             if (activeRecFilter !== null) {
                 matchRec = parseFloat(i.recorrencia) >= activeRecFilter;
             }
 
-            // 4. Filter by Buttons (Status) - Intelligent multi-select logic
             let matchStatus = true;
             if (!activeFilters.includes('all')) {
                 const statusFilters = activeFilters.filter(f => ['buy', 'attention', 'suggest'].includes(f));
                 const flagFilters = activeFilters.filter(f => ['has-order', 'high-rec'].includes(f));
                 
-                // If any status filter is selected, item must match one of them
-                let passStatus = statusFilters.length === 0; // true if no status filter is selected
+                let passStatus = statusFilters.length === 0;
                 if (statusFilters.length > 0) {
                     if (statusFilters.includes('buy') && i.situacao === 'ruptura') passStatus = true;
                     if (statusFilters.includes('attention') && i.situacao === 'atencao') passStatus = true;
                     if (statusFilters.includes('suggest') && i.situacao === 'sugestao') passStatus = true;
                 }
                 
-                // Item must also match ALL selected flags (AND logic for flags)
                 let passFlags = true;
                 if (flagFilters.includes('has-order') && !i.temEncomenda) passFlags = false;
                 
                 matchStatus = passStatus && passFlags;
             }
 
-            return matchProd && matchSupp && matchBuyer && matchStatus && matchRec;
+            return matchBuyer && matchStatus && matchRec;
+        };
+
+        // 2. Filtros de Busca (Texto e Smart Search) - Afetam apenas a Tabela
+        const matchesSearch = (i) => {
+            const cleanProd = i.produto.toString().replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+            const cleanTerm = prodTerm.replace(/[^a-zA-Z0-9]/g, '');
+            const matchProd = cleanProd.includes(cleanTerm) || 
+                               i.grupo.toString().toLowerCase().includes(prodTerm) ||
+                               i.descricao.toString().toLowerCase().includes(prodTerm);
+            
+            const matchSmart = keywords.every(kw => 
+                i.descricao.toLowerCase().includes(kw) || 
+                i.produto.toString().toLowerCase().includes(kw) ||
+                i.fornecedor.toLowerCase().includes(kw)
+            );
+            return matchProd && matchSmart;
+        };
+
+        // Dados da Tabela: Filtro Total (Contexto + Busca + Seleções do Gráfico)
+        filteredData = currentData.filter(i => {
+            const context = matchesContext(i);
+            const search = matchesSearch(i);
+            const matchSelectedSupp = selectedSuppliers.length === 0 || selectedSuppliers.includes(i.fornecedor);
+            const matchSelectedGroup = selectedGroups.length === 0 || selectedGroups.includes(i.grupo);
+            return context && search && matchSelectedSupp && matchSelectedGroup;
         });
+
+        // Dados dos Gráficos: Apenas Contexto (Buyer/Status)
+        // Ignoramos a busca e as seleções para as barras ficarem sempre visíveis e estáveis
+        const chartData = currentData.filter(i => matchesContext(i));
+
+        renderActiveFilters();
 
         // 4. Sorting
         if (sortVendasDir === 'desc') {
@@ -1405,7 +1542,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (sortRecorrenciaDir === 'asc') {
             filteredData.sort((a, b) => parseFloat(a.recorrencia) - parseFloat(b.recorrencia));
         } else if (sortDiasEstoqueDir === 'asc') {
-            // null (S/Hist) sempre vai para o fim
             filteredData.sort((a, b) => {
                 if (a.diasEstoque === null) return 1;
                 if (b.diasEstoque === null) return -1;
@@ -1419,7 +1555,58 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        updateChart(chartData);
         renderTable(filteredData);
+    }
+
+    function renderActiveFilters() {
+        const container = document.getElementById('active-filters-container');
+        if (!container) return;
+        container.innerHTML = '';
+
+        if (selectedSuppliers.length === 0 && selectedGroups.length === 0 && activeFilters.includes('all') && activeBuyer === 'all' && activeRecFilter === null) {
+            container.innerHTML = '<span class="no-filters">Nenhum filtro ativo</span>';
+            return;
+        }
+        
+        container.style.display = 'flex';
+        
+        selectedSuppliers.forEach(supp => {
+            const tag = document.createElement('div');
+            tag.className = 'filter-tag';
+            tag.innerHTML = `
+                <span>🏢 ${supp}</span>
+                <span class="filter-tag-remove" data-type="supplier" data-value="${supp}">&times;</span>
+            `;
+            container.appendChild(tag);
+        });
+        
+        selectedGroups.forEach(group => {
+            const tag = document.createElement('div');
+            tag.className = 'filter-tag group-tag';
+            tag.innerHTML = `
+                <span>📦 ${group}</span>
+                <span class="filter-tag-remove" data-type="group" data-value="${group}">&times;</span>
+            `;
+            container.appendChild(tag);
+        });
+        
+        // Add event listeners for removal
+        container.querySelectorAll('.filter-tag-remove').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const type = btn.getAttribute('data-type');
+                const value = btn.getAttribute('data-value');
+                
+                if (type === 'supplier') {
+                    selectedSuppliers = selectedSuppliers.filter(s => s !== value);
+                } else if (type === 'group') {
+                    selectedGroups = selectedGroups.filter(g => g !== value);
+                }
+                
+                applyAllFilters();
+            });
+        });
     }
 
     function toggleFilter(filter, source = 'table') {
@@ -1472,7 +1659,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Combined search logic
     tableSearch.addEventListener('input', applyAllFilters);
-    supplierSearch.addEventListener('input', applyAllFilters);
+    smartSearch.addEventListener('input', applyAllFilters);
     
     buyerBtns.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -1584,7 +1771,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Clear filters
     clearFiltersBtn.addEventListener('click', () => {
         tableSearch.value = '';
-        supplierSearch.value = '';
+        smartSearch.value = '';
+        selectedSuppliers = [];
+        selectedGroups = [];
         activeBuyer = 'all';
         activeRecFilter = null;
         isRecurrenceActive = false;
@@ -1657,5 +1846,64 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.exportAttention = () => exportToExcel(); // Kept for legacy if called elsewhere
+
+    // --- Multi-Supplier Modal Logic ---
+    if (openSupplierModalBtn && supplierModal) {
+        openSupplierModalBtn.addEventListener('click', () => {
+            renderSupplierChecklist();
+            supplierModal.classList.add('active');
+        });
+
+        closeSupplierModalBtn.onclick = () => supplierModal.classList.remove('active');
+        
+        window.addEventListener('click', (e) => {
+            if (e.target === supplierModal) supplierModal.classList.remove('active');
+        });
+
+        modalSupplierSearch.oninput = (e) => {
+            const val = e.target.value.toLowerCase();
+            const items = supplierChecklist.querySelectorAll('.check-item');
+            items.forEach(item => {
+                const text = item.innerText.toLowerCase();
+                item.style.display = text.includes(val) ? 'flex' : 'none';
+            });
+        };
+
+        btnSelectAllSuppliers.onclick = () => {
+            const checkboxes = supplierChecklist.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(cb => {
+                if (cb.parentElement.style.display !== 'none') cb.checked = true;
+            });
+        };
+
+        btnClearAllSuppliers.onclick = () => {
+            const checkboxes = supplierChecklist.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(cb => {
+                if (cb.parentElement.style.display !== 'none') cb.checked = false;
+            });
+        };
+
+        applySupplierFilterBtn.onclick = () => {
+            const checkboxes = supplierChecklist.querySelectorAll('input[type="checkbox"]');
+            selectedSuppliers = [];
+            checkboxes.forEach(cb => {
+                if (cb.checked) selectedSuppliers.push(cb.value);
+            });
+            supplierModal.classList.remove('active');
+            applyAllFilters();
+        };
+    }
+
+    function renderSupplierChecklist() {
+        if (!supplierChecklist) return;
+        const uniqueSuppliers = [...new Set(currentData.map(i => i.fornecedor))].sort();
+        
+        supplierChecklist.innerHTML = uniqueSuppliers.map(supp => `
+            <label class="check-item" style="display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 6px; cursor: pointer; transition: background 0.2s;">
+                <input type="checkbox" value="${supp}" ${selectedSuppliers.includes(supp) ? 'checked' : ''} style="width: 16px; height: 16px; accent-color: var(--primary);">
+                <span style="font-size: 13px; color: #fff;">${supp}</span>
+            </label>
+        `).join('');
+    }
 
 });

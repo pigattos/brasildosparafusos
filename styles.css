@@ -647,19 +647,19 @@ header {
 }
 
 .table-toolbar {
-    padding: 1.5rem;
+    padding: 1rem 1.5rem;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid var(--border-color);
-    flex-wrap: wrap;
-    gap: 1rem;
+    flex-direction: column;
+    gap: 1.2rem;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .search-group {
     display: flex;
     gap: 1rem;
-    flex: 1;
+    width: 100%;
+    align-items: center;
 }
 
 @media (max-width: 900px) {
@@ -671,8 +671,12 @@ header {
 
 .search-box {
     position: relative;
-    width: 100%;
-    max-width: 320px;
+    flex: 2;
+    min-width: 200px;
+}
+
+.search-box:nth-child(2) {
+    flex: 3;
 }
 
 .search-icon {
@@ -688,37 +692,62 @@ header {
 
 .search-box input {
     width: 100%;
-    background: #000;
-    border: 1px solid var(--border-color);
-    padding: 0.8rem 1rem 0.8rem 2.8rem;
-    border-radius: var(--radius-md);
-    color: var(--text-main);
-    transition: border-color var(--transition-fast);
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 0.7rem 1rem 0.7rem 2.8rem;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 0.85rem;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(5px);
 }
 
 .search-box input:focus {
     outline: none;
     border-color: var(--primary);
+    background: rgba(0, 0, 0, 0.6);
+    box-shadow: 0 0 15px rgba(37, 99, 235, 0.1);
 }
 
 .filters {
     display: flex;
     gap: 10px;
+    width: 100%;
+    justify-content: flex-start;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.action-group {
+    margin-left: auto;
+    display: flex;
+    gap: 10px;
 }
 
 .filter-btn {
-    background: transparent;
-    border: 1px solid var(--border-color);
-    padding: 0.6rem 1.2rem;
-    border-radius: var(--radius-sm);
-    color: var(--text-main);
+    background: #1e293b;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    color: #ffffff;
     cursor: pointer;
-    font-weight: 500;
-    transition: all var(--transition-fast);
+    font-weight: 600;
+    font-size: 0.75rem;
+    font-family: 'Outfit', sans-serif;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    white-space: nowrap;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .filter-btn:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: #2d3748;
+    border-color: rgba(59, 130, 246, 0.5);
+    color: #fff;
+    transform: translateY(-1px);
 }
 
 .table-wrapper {
@@ -734,43 +763,54 @@ table {
 }
 
 .filter-btn.active {
+    background: #2563eb;
+    border-color: #60a5fa;
+    color: #fff;
+    box-shadow: 0 0 12px rgba(37, 99, 235, 0.3);
+}
+
+.filter-btn.primary {
     background: var(--primary);
-    border-color: var(--primary);
+    border: none;
+    color: white;
 }
 
 /* Buyer Selector Styling */
 .buyer-selector {
     display: flex;
     gap: 8px;
-    background: rgba(0, 0, 0, 0.3);
+    background: rgba(15, 23, 42, 0.4);
     padding: 4px;
     border-radius: var(--radius-md);
-    border: 1px solid var(--border-color);
+    border: 1px solid rgba(59, 130, 246, 0.1);
 }
 
 .buyer-btn {
     background: transparent;
     border: none;
-    padding: 0.6rem 1.2rem;
-    border-radius: var(--radius-sm);
-    color: var(--text-muted);
+    padding: 0 1rem;
+    border-radius: 6px;
+    color: #64748b;
     cursor: pointer;
     font-weight: 600;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-family: 'Outfit', sans-serif;
-    transition: all var(--transition-fast);
-    white-space: nowrap;
+    transition: all 0.2s ease;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .buyer-btn:hover {
-    color: var(--text-main);
+    color: #fff;
     background: rgba(255, 255, 255, 0.05);
 }
 
 .buyer-btn.active {
-    background: var(--primary);
+    background: #2563eb;
     color: #fff;
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);
 }
 
 thead {
@@ -2139,3 +2179,131 @@ body.loading-active {
     text-transform: uppercase;
 }
 
+/* Equivalente Nacional - Green Theme */
+.national-option {
+    background: rgba(16, 185, 129, 0.03);
+    border: 1px dashed rgba(16, 185, 129, 0.3) !important;
+    border-radius: 8px;
+    padding: 10px 12px !important;
+    box-shadow: none;
+    max-width: fit-content;
+}
+
+.national-badge {
+    font-size: 0.65rem;
+    font-weight: 800;
+    color: #10b981;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.economic-row.national:hover {
+    background: rgba(16, 185, 129, 0.05);
+    border-color: rgba(16, 185, 129, 0.2);
+}
+
+.economic-row.national .stock-value {
+    color: #10b981;
+}
+
+/* Active Filter Tags */
+.active-filters-tags {
+    display: none;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.8rem 1.5rem;
+    background: rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.filter-tag {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(37, 99, 235, 0.15);
+    border: 1px solid rgba(37, 99, 235, 0.4);
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    animation: fadeInTag 0.2s ease-out;
+}
+
+@keyframes fadeInTag {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.filter-tag.group-tag {
+    background: rgba(245, 158, 11, 0.15);
+    border-color: rgba(245, 158, 11, 0.4);
+}
+
+.filter-tag-remove {
+    cursor: pointer;
+    font-size: 1.2rem;
+    line-height: 1;
+    opacity: 0.6;
+    transition: all 0.2s;
+    margin-left: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+
+/* Supplier Modal Styles */
+.supplier-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+    margin-bottom: 4px;
+}
+
+.supplier-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.supplier-item.selected {
+    background: rgba(37, 99, 235, 0.1);
+    border-color: rgba(37, 99, 235, 0.3);
+}
+
+.supplier-checkbox {
+    width: 18px;
+    height: 18px;
+    margin-right: 12px;
+    cursor: pointer;
+}
+
+.supplier-info-box {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.supplier-name-text {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.supplier-stats-text {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.supplier-risk-badge {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--danger);
+    background: rgba(239, 68, 68, 0.1);
+    padding: 2px 8px;
+    border-radius: 4px;
+}
