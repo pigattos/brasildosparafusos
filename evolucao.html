@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/svg+xml"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+    <title>Evolução e Projeção de Investimento | Gestor de Estoque</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css?v=2.3.1">
+    <!-- Libraries -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .projection-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .projection-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .projection-card:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(99, 102, 241, 0.3);
+        }
+
+        .level-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+        }
+
+        .level-rupture { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .level-attention { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .level-suggest { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+
+        .invest-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #fff;
+            margin: 0.5rem 0;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .invest-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .simulator-box {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-top: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 2rem;
+        }
+
+        .sim-controls {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            cursor: pointer;
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .checkbox-wrapper:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .checkbox-wrapper.active {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.15);
+        }
+
+        .checkbox-wrapper input {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .total-projection {
+            text-align: right;
+        }
+
+        .total-projection h3 {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+        }
+
+        .total-projection .grand-total {
+            font-size: 3rem;
+            font-weight: 800;
+            color: #fff;
+            font-family: 'Outfit', sans-serif;
+            text-shadow: 0 0 30px rgba(99, 102, 241, 0.4);
+        }
+        
+        .chart-container-large {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            height: 400px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="loading-content">
+            <div class="spinner-container">
+                <div class="spinner-main"></div>
+                <div class="spinner-accent"></div>
+            </div>
+            <div class="loading-text">
+                <h3>Analisando Pastas</h3>
+                <p>Processando arquivos de ruptura e gerando projeções...</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <header>
+            <div class="logo-area">
+                <div class="header-titles">
+                    <h1>Evolução e Projeção <small>v1.0</small></h1>
+                    <span class="sector-tag">Análise de Investimento</span>
+                </div>
+            </div>
+            <div class="header-actions">
+                <a href="index.html" class="btn btn-secondary">
+                    <span class="btn-icon">🏠</span> Dashboard Principal
+                </a>
+                <div class="dropdown">
+                    <button class="btn btn-secondary" style="position: relative;">
+                        <span class="btn-icon">📉</span> Análise de Rupturas
+                        <span style="position: absolute; top: -10px; right: -10px; background: #f59e0b; color: white; font-size: 0.55rem; font-weight: 800; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.4); white-space: nowrap; z-index: 10;">Em Construção</span>
+                    </button>
+                    <div class="dropdown-content">
+                        <a href="rupturas.html" class="dropdown-item">
+                            <span class="btn-icon">📋</span> Dashboard Analítico
+                        </a>
+                        <a href="evolucao.html" class="dropdown-item">
+                            <span class="btn-icon">📊</span> Evolução e Projeção
+                        </a>
+                    </div>
+                </div>
+                <input type="file" id="folder-input" webkitdirectory directory multiple style="display: none;">
+                <button id="sync-btn" class="btn btn-primary">
+                    <span class="btn-icon">📁</span> Selecionar Pasta
+                </button>
+            </div>
+        </header>
+
+        <main>
+            <section class="intro-section" style="margin-bottom: 3rem; text-align: center;">
+                <h2 style="font-size: 2.2rem; margin-bottom: 1rem;">Cenário Atual de Rupturas</h2>
+                <p style="color: var(--text-muted); max-width: 800px; margin: 0 auto; line-height: 1.6;">
+                    Compare a evolução diária dos itens em risco e projete o capital necessário para normalizar o estoque de acordo com a cobertura desejada.
+                </p>
+            </section>
+
+            <div class="chart-container-large">
+                <canvas id="evolution-chart"></canvas>
+            </div>
+
+            <section class="projection-grid" id="projection-cards">
+                <!-- Cards will be injected here -->
+            </section>
+
+            <section class="simulator-box">
+                <div class="sim-info">
+                    <h2 style="margin-bottom: 0.5rem;">Simulador de Investimento</h2>
+                    <p style="color: var(--text-muted); font-size: 0.9rem;">Selecione os níveis para compor sua projeção de compra.</p>
+                </div>
+                <div class="sim-controls">
+                    <label class="checkbox-wrapper active" data-level="rupture">
+                        <input type="checkbox" checked value="rupture">
+                        <span>🚨 Rupturas</span>
+                    </label>
+                    <label class="checkbox-wrapper active" data-level="attention">
+                        <input type="checkbox" checked value="attention">
+                        <span>⚡ Atenção</span>
+                    </label>
+                    <label class="checkbox-wrapper" data-level="suggest">
+                        <input type="checkbox" value="suggest">
+                        <span>⚠️ Sugestões</span>
+                    </label>
+                </div>
+                <div class="total-projection">
+                    <h3>Investimento Estimado</h3>
+                    <div class="grand-total" id="grand-total">R$ 0,00</div>
+                </div>
+            </section>
+        </main>
+
+        <footer style="margin-top: 4rem;">
+            <p>&copy; 2026 - Gestor de Estoque | Brasil dos Parafusos</p>
+        </footer>
+    </div>
+
+    <script src="evolucao.js"></script>
+</body>
+
+</html>

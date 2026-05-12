@@ -6,14 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/svg+xml"
         href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📉</text></svg>">
-    <title>Análise Profunda de Rupturas | Brasil dos Parafusos</title>
+    <title>Análise Analítica de Rupturas | Brasil dos Parafusos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
-    <!-- Libraries -->
+    
+    <!-- Bibliotecas Externas -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
@@ -27,118 +28,178 @@
                 <div class="spinner-main"></div>
                 <div class="spinner-accent"></div>
             </div>
-            <div class="loading-text">
-                <h3>Analisando Histórico de Rupturas</h3>
-                <p>Processando planilhas diárias do OneDrive...</p>
-            </div>
+            <div class="loading-text">Processando Inteligência de Dados...</div>
         </div>
     </div>
 
-    <div class="app-container">
-        <header>
-            <div class="logo-area">
-                <div class="header-titles">
-                    <h1>Análise de Rupturas <small>Analítico</small></h1>
-                    <span class="sector-tag">Setor de Compras</span>
+    <div class="container">
+        <header class="main-header">
+            <div class="header-content">
+                <div class="logo-area">
+                    <h1 class="main-title">Análise de Rupturas <span class="badge badge-buy" style="font-size: 0.6rem; vertical-align: middle;">Analítico</span></h1>
+                    <p class="subtitle">Setor de Compras | Evolução e Histórico</p>
                 </div>
             </div>
             <div class="header-actions">
-                <label for="folder-upload" class="btn btn-primary" id="refresh-btn">
+                <!-- Filtro de Comprador -->
+                <div class="buyer-selector" id="buyer-filter-container" style="margin-right: 1rem;">
+                    <button class="buyer-btn active" data-buyer="all">👤 Todos</button>
+                    <button class="buyer-btn" data-buyer="Cassyano">Cassyano</button>
+                    <button class="buyer-btn" data-buyer="Rafa">Rafa</button>
+                </div>
+
+                <label for="folder-upload" class="btn btn-primary">
                     <span class="btn-icon">📁</span> Selecionar Pasta
                 </label>
                 <input type="file" id="folder-upload" webkitdirectory directory multiple hidden>
                 
-                <a href="entradas.html" class="btn btn-secondary">
-                    <span class="btn-icon">📑</span> Análise de Entradas
-                </a>
+                <div class="dropdown">
+                    <button class="btn btn-secondary" style="position: relative;">
+                        <span class="btn-icon">📉</span> Análise de Rupturas
+                        <span style="position: absolute; top: -10px; right: -10px; background: #f59e0b; color: white; font-size: 0.55rem; font-weight: 800; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.4); white-space: nowrap; z-index: 10;">Em Construção</span>
+                    </button>
+                    <div class="dropdown-content">
+                        <a href="rupturas.html" class="dropdown-item">
+                            <span class="btn-icon">📋</span> Dashboard Analítico
+                        </a>
+                        <a href="evolucao.html" class="dropdown-item">
+                            <span class="btn-icon">📊</span> Evolução e Projeção
+                        </a>
+                    </div>
+                </div>
+                
                 <a href="index.html" class="btn btn-secondary">
                     <span class="btn-icon">📦</span> Gestor de Estoque
                 </a>
             </div>
         </header>
 
+        <!-- Seletor de Linha do Tempo Dinâmica -->
+        <div class="main-card" id="timeline-card" style="display: none; margin-bottom: 2rem; background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(37, 99, 235, 0.08) 100%); border: 1px solid rgba(59, 130, 246, 0.2);">
+            <div class="card-body" style="padding: 2rem;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem;">
+                    <div>
+                        <h3 style="font-size: 1.1rem; color: #fff; margin-bottom: 0.5rem;"><span class="header-icon">🕒</span> Navegador Temporal de Cenários</h3>
+                        <p style="color: var(--text-muted); font-size: 0.85rem;">Arraste para visualizar o estado do estoque em diferentes datas.</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <div id="current-snapshot-date" style="font-size: 1.8rem; font-weight: 700; color: #3b82f6; font-family: 'Outfit', sans-serif;">---</div>
+                        <div id="current-snapshot-name" style="font-size: 0.75rem; color: var(--text-muted);">Aguardando dados...</div>
+                    </div>
+                </div>
+                
+                <div class="timeline-slider-wrapper" style="position: relative; padding: 0 10px;">
+                    <input type="range" id="timeline-range" min="0" max="0" step="1" value="0" style="width: 100%; height: 6px; appearance: none; background: rgba(255,255,255,0.1); border-radius: 3px; outline: none; cursor: pointer;">
+                    <div id="timeline-ticks" style="display: flex; justify-content: space-between; margin-top: 15px; color: var(--text-muted); font-size: 0.7rem; font-weight: 600;">
+                        <!-- Injetado via JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <main>
-            <!-- Summary Section -->
-            <section class="summary-cards" style="margin-bottom: 2rem;">
-                <div class="card-nf" style="border-left: 4px solid #fb7185;">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
-                        <span class="nf-label">Ruptura Atual (Crítico)</span>
-                        <span id="trend-rupture" class="card-trend-badge"></span>
-                    </div>
-                    <span class="nf-value" id="current-rupture-value">R$ 0,00</span>
-                    <span class="nf-sub" id="current-rupture-count">0 itens em risco total</span>
+            <!-- Resumo de Movimentação Diária -->
+            <div class="main-card" id="daily-diff-card" style="display: none; margin-bottom: 2rem;">
+                <div class="card-header">
+                    <h3><span class="header-icon">🔄</span> Movimentação da Carteira (Últimos 2 Relatórios)</h3>
                 </div>
-                <div class="card-nf" style="border-left: 4px solid #f59e0b;">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
-                        <span class="nf-label">Atenção Atual (2 Meses)</span>
-                        <span id="trend-attention" class="card-trend-badge"></span>
+                <div class="card-body">
+                    <div id="daily-diff-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
+                        <!-- Injetado via JS -->
                     </div>
-                    <span class="nf-value" id="current-attention-value">R$ 0,00</span>
-                    <span class="nf-sub" id="current-attention-count">0 itens em monitoramento</span>
                 </div>
-                <div class="card-nf" style="border-left: 4px solid #818cf8;">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
-                        <span class="nf-label">Sugestão de Compra</span>
-                        <span id="trend-suggest" class="card-trend-badge"></span>
+            </div>
+
+            <!-- Cards de Resumo Atual -->
+            <section class="stats-grid" style="margin-bottom: 2rem;">
+                <div class="stat-card card-buy">
+                    <div class="stat-header">
+                        <span class="stat-label">RUPTURA ATUAL (CRÍTICO)</span>
+                        <span class="trend-badge" id="rupture-trend"></span>
                     </div>
-                    <span class="nf-value" id="current-suggest-value">R$ 0,00</span>
-                    <span class="nf-sub" id="current-suggest-count">0 itens para reposição base</span>
+                    <div class="stat-value" id="rupture-value">R$ 0,00</div>
+                    <div class="stat-footer" id="rupture-count">0 itens em risco total</div>
+                </div>
+
+                <div class="stat-card card-warn">
+                    <div class="stat-header">
+                        <span class="stat-label">ATENÇÃO ATUAL (2 MESES)</span>
+                        <span class="trend-badge" id="attention-trend"></span>
+                    </div>
+                    <div class="stat-value" id="attention-value">R$ 0,00</div>
+                    <div class="stat-footer" id="attention-count">0 itens em monitoramento</div>
+                </div>
+
+                <div class="stat-card card-caution">
+                    <div class="stat-header">
+                        <span class="stat-label">SUGESTÃO DE COMPRA (3 MESES)</span>
+                        <span class="trend-badge" id="suggest-trend"></span>
+                    </div>
+                    <div class="stat-value" id="suggest-value">R$ 0,00</div>
+                    <div class="stat-footer" id="suggest-count">0 itens para reposição</div>
                 </div>
             </section>
 
-            <!-- Main Charts Row -->
-            <div class="entradas-row-full" style="margin-bottom: 2rem;">
-                <div class="chart-container-nf" style="min-height: 450px;">
-                    <h3 style="margin-bottom: 1.5rem; color: var(--primary);">Evolução Histórica das Rupturas (Qtd. Itens)</h3>
+            <!-- Gráfico de Evolução -->
+            <div class="main-card" style="margin-bottom: 2rem;">
+                <div class="card-header">
+                    <h3><span class="header-icon">📊</span> Evolução Histórica das Rupturas (Qtd. Itens)</h3>
+                </div>
+                <div class="card-body">
                     <div style="height: 350px; position: relative;">
-                        <canvas id="rupture-evolution-chart"></canvas>
+                        <canvas id="evolution-chart"></canvas>
                     </div>
                 </div>
             </div>
 
-            <div class="entradas-row-full" style="margin-bottom: 2rem;">
-                <div class="chart-container-nf" style="min-height: 450px;">
-                    <h3 style="margin-bottom: 1.5rem; color: #fb7185;">Impacto Financeiro em Ruptura (Valor Acumulado)</h3>
-                    <div style="height: 350px; position: relative;">
-                        <canvas id="value-evolution-chart"></canvas>
-                    </div>
+            <!-- Histórico e Comparativo -->
+            <div class="main-card" style="margin-bottom: 2rem;">
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3><span class="header-icon">📅</span> Histórico de Snapshots Diários</h3>
+                    <button id="compare-btn" class="btn btn-primary" style="display: none; padding: 0.5rem 1rem; font-size: 0.8rem;">
+                        ⚖️ Comparar Selecionados (<span id="selected-count">0</span>)
+                    </button>
                 </div>
-            </div>
-
-            <!-- Table for historical snapshots -->
-            <section class="data-section">
-                <div class="table-container">
-                    <div class="table-toolbar">
-                        <h3 style="color: white; margin: 0;">Histórico de Snapshots Diários</h3>
-                        <div class="export-group">
-                            <span style="font-size: 0.8rem; color: var(--text-muted);">Dados extraídos da pasta "Análise Rupturas"</span>
-                        </div>
-                    </div>
-                    <div class="table-wrapper">
+                <div class="card-body">
+                    <div class="table-container">
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Data do Arquivo</th>
-                                    <th>Nome do Arquivo</th>
+                                    <th style="width: 40px;"></th>
+                                    <th>Arquivo</th>
+                                    <th>Data</th>
                                     <th style="text-align: center;">Total Itens</th>
-                                    <th style="text-align: center; color: #fb7185;">🚨 Ruptura</th>
-                                    <th style="text-align: center; color: #f59e0b;">⚡ Atenção</th>
-                                    <th style="text-align: center; color: #818cf8;">⚠️ Sugestão</th>
+                                    <th style="text-align: center;">Rupturas</th>
                                     <th style="text-align: right;">Valor em Risco</th>
+                                    <th style="text-align: center;">Ações</th>
                                 </tr>
                             </thead>
                             <tbody id="history-table-body">
-                                <!-- Data injected via JS -->
+                                <tr>
+                                    <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                                        Selecione uma pasta para carregar o histórico de rupturas.
+                                    </td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
-            </section>
-        </main>
+            </div>
 
-        <footer>
-            <p>&copy; 2026 Brasil dos Parafusos - Módulo de Análise Analítica de Rupturas</p>
-        </footer>
+        </main>
+    </div>
+
+    <!-- Modal de Comparação -->
+    <div id="comparison-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 1100px;">
+            <div class="modal-header">
+                <h2 id="modal-title">⚖️ Comparativo de Períodos</h2>
+                <button class="close-btn" id="close-modal">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <!-- Injetado via JS -->
+            </div>
+        </div>
     </div>
 
     <script src="rupturas.js"></script>

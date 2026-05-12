@@ -1,499 +1,628 @@
+/**
+ * Rupturas Analítico v3.0 - Rebuilt from Scratch
+ * Foco em Robustez de Dados e Comparativo Histórico
+ */
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("Módulo de Análise de Rupturas Carregado");
+    console.log("Rupturas Analítico v3.0 Inicializado");
+
+    // --- Configurações ---
+    const RECORRENCIA_MINIMA = 0.16; // 17% de recorrência (1/6 meses)
     
-    const loadingOverlay = document.getElementById('loading-overlay');
-    const folderUpload = document.getElementById('folder-upload');
-    const historyTableBody = document.getElementById('history-table-body');
-    
+    // --- Estado Global ---
+    let snapshotHistory = []; // Array de objetos { name, date, summary, items, rawData }
+    let activeBuyer = 'all';
+    let selectedSnapshots = new Set();
     let evolutionChart = null;
-    let valueChart = null;
+    let buyerMap = JSON.parse(localStorage.getItem('buyerMap') || '{}');
+    let currentTimelineIdx = 0;
 
-    function showLoading() {
-        if (loadingOverlay) loadingOverlay.style.display = 'flex';
-    }
+    // --- Elementos DOM ---
+    const folderInput = document.getElementById('folder-upload');
+    const historyTableBody = document.getElementById('history-table-body');
+    const compareBtn = document.getElementById('compare-btn');
+    const selectedCountEl = document.getElementById('selected-count');
+    const modal = document.getElementById('comparison-modal');
+    const modalBody = document.getElementById('modal-body');
+    const closeModal = document.getElementById('close-modal');
+    const loadingOverlay = document.getElementById('loading-overlay');
 
-    function hideLoading() {
-        if (loadingOverlay) loadingOverlay.style.display = 'none';
-    }
+    // --- Utilitários de Formatação ---
+    const formatCurrency = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const formatNumber = (v) => v.toLocaleString('pt-BR');
 
-    /**
-     * Tenta encontrar o valor em uma linha usando múltiplos nomes de coluna possíveis (Case-Insensitive)
-     * Mesma lógica do app.js para garantir paridade total.
-     */
-    function getValue(row, keys) {
-        const rowKeys = Object.keys(row);
-        const cleanStr = (s) => s.toString().toLowerCase().trim()
-            .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-            .replace(/[.\-_/\\()]/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
+    // --- Sistema de Busca de Colunas ---
+    function findColumn(headers, aliases) {
+        const cleanHeaders = headers.map(h => String(h || '').toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+        const cleanAliases = aliases.map(a => a.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
 
-        for (let key of keys) {
-            const target = cleanStr(key);
-            if (row[key] !== undefined) return row[key];
-            const normKey = rowKeys.find(rk => cleanStr(rk) === target);
-            if (normKey) return row[normKey];
+        // 1. Busca Exata
+        for (let alias of cleanAliases) {
+            const idx = cleanHeaders.indexOf(alias);
+            if (idx !== -1) return headers[idx];
         }
 
-        // Fallback: word match
-        for (let key of keys) {
-            const target = cleanStr(key);
-            if (target.length < 3) continue;
-            const fuzzyKey = rowKeys.find(rk => {
-                const words = cleanStr(rk).split(' ');
-                return words.some(word => word === target || (word.length >= 4 && target.startsWith(word)));
-            });
-            if (fuzzyKey) return row[fuzzyKey];
+        // 2. Busca Parcial
+        for (let alias of cleanAliases) {
+            const idx = cleanHeaders.findIndex(h => h.includes(alias));
+            if (idx !== -1) return headers[idx];
         }
-        return undefined;
+
+        return null;
     }
 
-    /**
-     * Converte valor para número de forma segura (paridade com app.js)
-     */
-    function parseNum(val) {
+    function parseNumeric(val) {
         if (val === undefined || val === null || val === '') return 0;
         if (typeof val === 'number') return val;
-        let str = val.toString().replace('R$', '').replace(/\s/g, '').trim();
-        if (str.startsWith('.') || str.startsWith(',')) str = '0' + str;
-        const hasComma = str.includes(',');
-        const hasDot = str.includes('.');
-        if (hasComma && hasDot) {
-            if (str.lastIndexOf(',') > str.lastIndexOf('.')) str = str.replace(/\./g, '').replace(',', '.');
-            else str = str.replace(/,/g, '');
-        } else if (hasComma) str = str.replace(',', '.');
-        const num = parseFloat(str);
-        return isNaN(num) ? 0 : num;
-    }
-
-    async function handleFolderUpload(e) {
-        const files = Array.from(e.target.files).filter(f => f.name.match(/\.(xlsx|xls)$/i) && !f.name.startsWith('~$'));
-        if (files.length === 0) return;
-
-        showLoading();
-        
-        try {
-            const historyData = [];
-
-            for (const file of files) {
-                const data = await readExcel(file);
-                if (!data || data.length === 0) continue;
-
-                let fileDate = new Date(file.lastModified).toISOString().split('T')[0];
-                const dateMatch = file.name.match(/(\d{4}-\d{2}-\d{2})|(\d{2}-\d{2}-\d{4})/);
-                if (dateMatch) {
-                    fileDate = dateMatch[0];
-                    if (fileDate.includes('-') && fileDate.split('-')[0].length === 2) {
-                        const parts = fileDate.split('-');
-                        fileDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
-                    }
-                }
-
-                const rows = data;
-                let ruptureCount = 0; let ruptureValue = 0;
-                let attentionCount = 0; let attentionValue = 0;
-                let suggestCount = 0; let suggestValue = 0;
-                let totalItems = rows.length;
-
-                const allKeys = Object.keys(rows[0] || {});
-                const validMonthInfo = allKeys.filter(k => /^\d{2}\/\d{4}$/.test(k)).filter(k => {
-                    const [m, y] = k.split('/').map(Number);
-                    return (y < 2026) || (y === 2026 && m <= 5);
-                });
-
-                rows.forEach(row => {
-                    // Aliases sincronizados com app.js
-                    const estoque = parseNum(getValue(row, ['Estoque', 'Saldo', 'Qtd. Estoque', 'Estoque Total', 'Saldo Atual', 'Saldo Disponível', 'Disp.', 'Qtd. Disponível', 'Estoque Atual']));
-                    const encomendas = parseNum(getValue(row, [
-                        'Encomendas', 'Qtd. Encomenda', 'Saldo Pedido Compra', 'Saldo Ped. Compra', 'Pedido Compra', 
-                        'Qtd. em Pedido Compra', 'Qtd. no Pedido Compra', 'Saldo a Receber', 'A Receber', 'Pedidos', 
-                        'Qtd. Pedida', 'Saldo Pedido', 'Compras', 'Qtd em Pedido', 'Qtd. Ped.', 'Saldo Ped.', 
-                        'Pendência', 'Qtd. no Pedido', 'Encomenda', 'Pedido', 'Qtd Ped Compra', 'A Receber Total',
-                        'A Entregar', 'Saldo a Entregar', 'Qtd. Pendente', 'Pendente', 'Saldo O.C.', 'Ord. Compra'
-                    ]));
-                    const custo = parseNum(getValue(row, ['Preço reposição', 'Custo aquisição', 'Custo Unitário', 'Custo', 'Preço Custo', 'Vlr. Custo', 'Custo Médio', 'Unitário']));
-                    const vendasCol = parseNum(getValue(row, ['Vendas', 'Qtd. Vendida', 'Venda Total', 'Total Vendas', 'Venda', 'Saídas', 'Giro']));
-                    
-                    let totalVendas = vendasCol;
-                    let activeMonths = 0;
-                    let recorrencia = 0;
-                    let medVenda = 0;
-
-                    if (validMonthInfo.length > 0) {
-                        let sumMonths = 0;
-                        validMonthInfo.forEach(mKey => {
-                            const val = parseNum(row[mKey]);
-                            if (val > 0) {
-                                sumMonths += val;
-                                activeMonths++;
-                            }
-                        });
-                        if (totalVendas === 0) totalVendas = sumMonths;
-                        recorrencia = activeMonths / validMonthInfo.length;
-                        medVenda = activeMonths > 0 ? (totalVendas / activeMonths) : 0;
-                    } else {
-                        medVenda = parseNum(getValue(row, ['med.venda', 'media', 'giro', 'venda mensal']));
-                        const recRaw = getValue(row, ['recorrencia', 'giro freq', 'frequencia']);
-                        recorrencia = parseNum(recRaw);
-                        if (recorrencia > 1) recorrencia = recorrencia / 100;
-                        else if (!recRaw) recorrencia = 0;
-                    }
-                    
-                    const totalDisponivel = estoque + encomendas;
-                    const passesRecurrence = (recorrencia > 0.33);
-
-                    if (passesRecurrence) {
-                        if (medVenda > totalDisponivel) {
-                            ruptureCount++;
-                            ruptureValue += (medVenda * 1 * custo);
-                        } else if ((medVenda * 2) > totalDisponivel) {
-                            attentionCount++;
-                            attentionValue += (medVenda * 2 * custo);
-                        } else if ((medVenda * 3) > totalDisponivel) {
-                            suggestCount++;
-                            suggestValue += (medVenda * 3 * custo);
-                        }
-                    }
-                });
-
-
-                historyData.push({
-                    file: file.name,
-                    date: fileDate,
-                    totalItems,
-                    rupture: { count: ruptureCount, value: ruptureValue },
-                    attention: { count: attentionCount, value: attentionValue },
-                    suggest: { count: suggestCount, value: suggestValue }
-                });
-            }
-
-            // Ordenar por data
-            historyData.sort((a, b) => new Date(a.date) - new Date(b.date));
-            renderDashboard(historyData);
-
-        } catch (e) {
-            console.error("ERRO NA ANÁLISE DE RUPTURAS:", e);
-            alert("Erro ao processar arquivos: " + e.message);
-        } finally {
-            hideLoading();
-            e.target.value = ''; // Reset input
+        let s = String(val).replace('R$', '').replace(/\s/g, '').trim();
+        if (s.includes(',') && s.includes('.')) {
+            if (s.lastIndexOf(',') > s.lastIndexOf('.')) s = s.replace(/\./g, '').replace(',', '.');
+            else s = s.replace(/,/g, '');
+        } else if (s.includes(',')) {
+            s = s.replace(',', '.');
         }
+        const n = parseFloat(s);
+        return isNaN(n) ? 0 : n;
     }
 
-    function readExcel(file) {
-        return new Promise((resolve, reject) => {
+    // --- Processamento de Arquivos ---
+    async function processExcelFile(file) {
+        return new Promise((resolve) => {
             const reader = new FileReader();
             reader.onload = (e) => {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
-                const json = XLSX.utils.sheet_to_json(worksheet);
-                resolve(json);
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                    if (rawRows.length === 0) return resolve(null);
+
+                    // 1. Achar linha de cabeçalho
+                    let headerIndex = -1;
+                    for (let i = 0; i < Math.min(rawRows.length, 30); i++) {
+                        const row = rawRows[i];
+                        if (row.some(cell => {
+                            const s = String(cell || '').toLowerCase();
+                            return /^\d{1,2}\/\d{2,4}$/.test(s) || s.includes('estoque') || s.includes('produto') || s.includes('codigo');
+                        })) {
+                            headerIndex = i;
+                            break;
+                        }
+                    }
+
+                    if (headerIndex === -1) {
+                        console.warn(`Cabeçalho não encontrado no arquivo ${file.name}`);
+                        return resolve(null);
+                    }
+
+                    const headers = rawRows[headerIndex];
+                    const rowsData = XLSX.utils.sheet_to_json(worksheet, { range: headerIndex });
+
+                    // 2. Mapear Colunas Chave
+                    const colMap = {
+                        codigo: findColumn(headers, ['Código', 'Cód.', 'Cod', 'Item', 'Produto ID', 'Referencia']),
+                        desc: findColumn(headers, ['Descrição', 'Desc', 'Nome', 'Produto Descrição']),
+                        estoque: findColumn(headers, ['Estoque', 'Saldo', 'Saldo Atual', 'Disponível', 'Disponivel', 'Qtd. Estoque']),
+                        encomendas: findColumn(headers, ['Encomendas', 'A Receber', 'Pedido Compra', 'Saldo Pedido', 'A Entregar', 'Pendencia']),
+                        custo: findColumn(headers, ['Custo', 'Preço Reposição', 'Unitário', 'Vlr. Unitário', 'Custo Médio']),
+                        medVenda: findColumn(headers, ['Média Venda', 'Giro Mensal', 'Média Mensal', 'Giro Médio', 'Giro Dia', 'Media']),
+                        vendasTotal: findColumn(headers, ['Vendas', 'Giro Total', 'Total Vendas', 'Saidas', 'Qtd. Vendida']),
+                        comprador: findColumn(headers, ['Comprador', 'Responsável', 'Gestor'])
+                    };
+
+                    const monthCols = headers.filter(h => /^\d{1,2}\/\d{2,4}$/.test(String(h).trim()));
+
+                    // 3. Processar Itens
+                    const items = rowsData.map(row => {
+                        const code = String(row[colMap.codigo] || '').trim();
+                        const desc = String(row[colMap.desc] || '').trim();
+                        if (!code && !desc) return null;
+
+                        const estoque = parseNumeric(row[colMap.estoque]);
+                        const encomendas = parseNumeric(row[colMap.encomendas]);
+                        const custo = parseNumeric(row[colMap.custo]);
+                        const vendasTotal = parseNumeric(row[colMap.vendasTotal]);
+                        
+                        let comprador = row[colMap.comprador];
+                        if (!comprador && code) {
+                            const cleanCode = code.replace(/^0+/, '').replace(/[.]/g, '');
+                            comprador = buyerMap[code] || buyerMap[cleanCode] || 'N/D';
+                        }
+
+                        let medVenda = parseNumeric(row[colMap.medVenda]);
+                        let recorrencia = 0;
+
+                        // Se tiver colunas de meses, calcula recorrencia e media por elas
+                        if (monthCols.length > 0) {
+                            let activeMonths = 0;
+                            let sumHistory = 0;
+                            monthCols.forEach(mCol => {
+                                const v = parseNumeric(row[mCol]);
+                                if (v > 0) {
+                                    activeMonths++;
+                                    sumHistory += v;
+                                }
+                            });
+                            recorrencia = activeMonths / monthCols.length;
+                            if (medVenda === 0 && activeMonths > 0) medVenda = sumHistory / activeMonths;
+                        } else {
+                            // Se não tiver meses, tenta pegar recorrencia pronta se existir
+                            const recRaw = parseNumeric(row[findColumn(headers, ['Recorrência', 'Frequência', 'Giro Freq'])]);
+                            recorrencia = recRaw > 1 ? recRaw / 100 : recRaw;
+                        }
+
+                        // Fallback: se tem venda mas recorrencia zerada, assume 34% para entrar na análise
+                        if (medVenda > 0 && recorrencia === 0) recorrencia = 0.34;
+
+                        // Classificação de Status
+                        let status = 'ok';
+                        const disponivel = estoque + encomendas;
+                        if (recorrencia >= RECORRENCIA_MINIMA) {
+                            if (medVenda > disponivel) status = 'rupture';
+                            else if ((medVenda * 2) > disponivel) status = 'attention';
+                            else if ((medVenda * 3) > disponivel) status = 'suggest';
+                        } else {
+                            status = 'ignored';
+                        }
+
+                        return {
+                            code, desc, comprador, status, 
+                            medVenda, estoque, encomendas, custo,
+                            value: medVenda * custo
+                        };
+                    }).filter(i => i !== null);
+
+                    // 4. Extrair Data do Arquivo
+                    let fileDate = new Date(file.lastModified).toISOString().split('T')[0];
+                    const dateMatch = file.name.match(/(\d{4}[\.\-\/]\d{2}[\.\-\/]\d{2})|(\d{2}[\.\-\/]\d{2}[\.\-\/]\d{4})/);
+                    if (dateMatch) {
+                        let dm = dateMatch[0].replace(/[\.\/]/g, '-');
+                        if (dm.split('-')[0].length === 2) {
+                            const p = dm.split('-');
+                            fileDate = `${p[2]}-${p[1]}-${p[0]}`;
+                        } else {
+                            fileDate = dm;
+                        }
+                    }
+
+                    resolve({
+                        name: file.name,
+                        date: fileDate,
+                        items: items
+                    });
+                } catch (err) {
+                    console.error(`Erro ao ler arquivo ${file.name}:`, err);
+                    resolve(null);
+                }
             };
-            reader.onerror = reject;
             reader.readAsArrayBuffer(file);
         });
     }
 
-    function renderDashboard(data) {
-        if (!data || data.length === 0) {
-            historyTableBody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 2rem; color: var(--text-muted);">Nenhum arquivo encontrado na pasta selecionada.</td></tr>';
-            return;
-        }
+    // --- Funções de Interface ---
+    function updateDashboard() {
+        if (snapshotHistory.length === 0) return;
 
-        // 1. Update Summary Cards (Latest snapshot)
-        const latest = data[data.length - 1];
-        const previous = data.length > 1 ? data[data.length - 2] : null;
-        
-        const formatCurrency = (val) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        
-        document.getElementById('current-rupture-value').textContent = formatCurrency(latest.rupture.value);
-        document.getElementById('current-rupture-count').textContent = `${latest.rupture.count} itens em risco total`;
-        
-        document.getElementById('current-attention-value').textContent = formatCurrency(latest.attention.value);
-        document.getElementById('current-attention-count').textContent = `${latest.attention.count} itens em monitoramento`;
-        
-        document.getElementById('current-suggest-value').textContent = formatCurrency(latest.suggest.value);
-        document.getElementById('current-suggest-count').textContent = `${latest.suggest.count} itens para reposição base`;
+        // Filtrar por comprador para todos os snapshots
+        const historyFiltered = snapshotHistory.map(snap => {
+            const filteredItems = snap.items.filter(i => activeBuyer === 'all' || i.comprador === activeBuyer);
+            
+            const rupture = filteredItems.filter(i => i.status === 'rupture');
+            const attention = filteredItems.filter(i => i.status === 'attention');
+            const suggest = filteredItems.filter(i => i.status === 'suggest');
 
-        // Calculate and render trends
-        if (previous) {
-            renderCardTrend('trend-rupture', latest.rupture.value, previous.rupture.value, true); // true = higher is worse
-            renderCardTrend('trend-attention', latest.attention.value, previous.attention.value, true);
-            renderCardTrend('trend-suggest', latest.suggest.value, previous.suggest.value, true);
-        }
-
-        // 2. Render Table
-        historyTableBody.innerHTML = '';
-        data.slice().reverse().forEach(entry => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${formatDate(entry.date)}</td>
-                <td style="font-size: 0.8rem; color: var(--text-muted);">${entry.file}</td>
-                <td style="text-align: center;">${entry.totalItems}</td>
-                <td style="text-align: center; font-weight: 700; color: #fb7185;">${entry.rupture.count}</td>
-                <td style="text-align: center; font-weight: 700; color: #f59e0b;">${entry.attention.count}</td>
-                <td style="text-align: center; font-weight: 700; color: #818cf8;">${entry.suggest.count}</td>
-                <td style="text-align: right; font-weight: 700;">${formatCurrency(entry.rupture.value)}</td>
-            `;
-            historyTableBody.appendChild(row);
+            return {
+                ...snap,
+                displayItems: filteredItems,
+                summary: {
+                    rupture: { count: rupture.length, value: rupture.reduce((acc, i) => acc + i.value, 0) },
+                    attention: { count: attention.length, value: attention.reduce((acc, i) => acc + (i.value * 2), 0) },
+                    suggest: { count: suggest.length, value: suggest.reduce((acc, i) => acc + (i.value * 3), 0) }
+                }
+            };
         });
 
-        // 3. Render Evolution Charts
-        renderEvolutionChart(data);
-        renderValueChart(data);
-        renderVariationChart(data);
+        initTimeline(historyFiltered);
+        renderCharts(historyFiltered);
+        renderTable(historyFiltered);
+        updateViewToSnapshot(historyFiltered, currentTimelineIdx);
     }
 
-    function renderCardTrend(elementId, current, previous, inverse = false) {
-        const el = document.getElementById(elementId);
-        if (!el) return;
+    function initTimeline(history) {
+        const card = document.getElementById('timeline-card');
+        const range = document.getElementById('timeline-range');
+        const ticks = document.getElementById('timeline-ticks');
+        if (!card || !range || history.length === 0) return;
 
-        if (!previous || previous === 0) {
-            el.style.display = 'none';
-            return;
-        }
+        card.style.display = 'block';
+        range.max = history.length - 1;
+        
+        // Se for o primeiro carregamento ou se o index estiver fora do novo range
+        if (currentTimelineIdx >= history.length) currentTimelineIdx = history.length - 1;
+        range.value = currentTimelineIdx;
 
-        const diff = current - previous;
-        const pct = (diff / previous) * 100;
-        
-        if (Math.abs(pct) < 0.1) {
-            el.textContent = '=';
-            el.className = 'card-trend-badge';
-            el.style.display = 'inline-block';
-            return;
-        }
+        ticks.innerHTML = history.map((h, idx) => `
+            <span style="cursor:pointer; opacity: ${idx === currentTimelineIdx ? '1' : '0.5'}" onclick="document.getElementById('timeline-range').value=${idx}; document.getElementById('timeline-range').dispatchEvent(new Event('input'));">
+                ${h.date.split('-').slice(1).reverse().join('/')}
+            </span>
+        `).join('');
+    }
 
-        const isUp = diff > 0;
-        const label = (isUp ? '↑ ' : '↓ ') + Math.abs(pct).toFixed(1) + '%';
+    function updateViewToSnapshot(history, idx) {
+        const snap = history[idx];
+        if (!snap) return;
+
+        document.getElementById('current-snapshot-date').textContent = snap.date.split('-').reverse().join('/');
+        document.getElementById('current-snapshot-name').textContent = snap.name;
+
+        renderSummary(history, idx);
+        renderDailyDiff(history, idx);
+    }
+
+
+    function renderSummary(history, idx) {
+        const latest = history[idx];
+        if (!latest) return;
+
+        document.getElementById('rupture-value').textContent = formatCurrency(latest.summary.rupture.value);
+        document.getElementById('rupture-count').textContent = `${latest.summary.rupture.count} itens em risco total`;
         
-        el.textContent = label;
-        el.style.display = 'inline-block';
+        document.getElementById('attention-value').textContent = formatCurrency(latest.summary.attention.value);
+        document.getElementById('attention-count').textContent = `${latest.summary.attention.count} itens em monitoramento`;
         
-        // Se inverse for true, subida (vermelho) é ruim, descida (verde) é bom
-        if (inverse) {
-            el.className = 'card-trend-badge ' + (isUp ? 'down' : 'up'); // 'down' class is red, 'up' is green
+        document.getElementById('suggest-value').textContent = formatCurrency(latest.summary.suggest.value);
+        document.getElementById('suggest-count').textContent = `${latest.summary.suggest.count} itens para reposição`;
+
+        // Tendências (Com relação ao snapshot anterior)
+        if (idx > 0) {
+            const prev = history[idx - 1];
+            updateTrendBadge('rupture-trend', latest.summary.rupture.count, prev.summary.rupture.count, true);
+            updateTrendBadge('attention-trend', latest.summary.attention.count, prev.summary.attention.count, true);
+            updateTrendBadge('suggest-trend', latest.summary.suggest.count, prev.summary.suggest.count, true);
         } else {
-            el.className = 'card-trend-badge ' + (isUp ? 'up' : 'down');
+            document.getElementById('rupture-trend').innerHTML = '';
+            document.getElementById('attention-trend').innerHTML = '';
+            document.getElementById('suggest-trend').innerHTML = '';
         }
     }
 
-    function formatDate(dateStr) {
-        const parts = dateStr.split('-');
-        if (parts.length === 3) {
-            return `${parts[2]}/${parts[1]}/${parts[0]}`;
-        }
-        return dateStr;
+    function updateTrendBadge(id, curr, prev, inverse = false) {
+        const el = document.getElementById(id);
+        if (!el || prev === 0) return;
+        const diff = ((curr - prev) / prev) * 100;
+        const isUp = diff > 0;
+        const color = (isUp ^ inverse) ? '#34d399' : '#fb7185';
+        el.innerHTML = `<span style="color: ${color}">${isUp ? '▲' : '▼'} ${Math.abs(diff).toFixed(1)}%</span>`;
     }
 
-    function renderEvolutionChart(data) {
-        const ctx = document.getElementById('rupture-evolution-chart').getContext('2d');
-        const labels = data.map(d => formatDate(d.date));
-        
-        const chartData = {
-            labels: labels,
-            datasets: [
-                {
-                    label: 'Ruptura (Crítico)',
-                    data: data.map(d => d.rupture.count),
-                    borderColor: '#fb7185',
-                    backgroundColor: 'rgba(251, 113, 133, 0.1)',
-                    tension: 0.4,
-                    fill: true,
-                    pointRadius: 4,
-                    pointHoverRadius: 6
-                },
-                {
-                    label: 'Atenção (2m)',
-                    data: data.map(d => d.attention.count),
-                    borderColor: '#f59e0b',
-                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                    tension: 0.4,
-                    fill: true,
-                    pointRadius: 4,
-                    pointHoverRadius: 6
-                },
-                {
-                    label: 'Sugestão (3m)',
-                    data: data.map(d => d.suggest.count),
-                    borderColor: '#818cf8',
-                    backgroundColor: 'rgba(129, 140, 248, 0.1)',
-                    tension: 0.4,
-                    fill: true,
-                    pointRadius: 4,
-                    pointHoverRadius: 6
+    function renderTable(history) {
+        historyTableBody.innerHTML = '';
+        [...history].reverse().forEach(snap => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><input type="checkbox" class="snap-check" data-id="${snap.name}" ${selectedSnapshots.has(snap.name) ? 'checked' : ''}></td>
+                <td>${snap.name}</td>
+                <td>${snap.date}</td>
+                <td style="text-align: center;">${snap.items.length}</td>
+                <td style="text-align: center;"><span class="badge badge-buy">${snap.summary.rupture.count}</span></td>
+                <td style="text-align: right; font-weight: 600;">${formatCurrency(snap.summary.rupture.value)}</td>
+                <td style="text-align: center;">
+                    <button class="btn btn-secondary btn-sm preview-snap" data-id="${snap.name}">🔎 Ver</button>
+                </td>
+            `;
+            historyTableBody.appendChild(tr);
+        });
+
+        // Listeners Checkboxes
+        document.querySelectorAll('.snap-check').forEach(cb => {
+            cb.addEventListener('change', () => {
+                if (cb.checked) selectedSnapshots.add(cb.dataset.id);
+                else selectedSnapshots.delete(cb.dataset.id);
+                updateCompareButton();
+            });
+        });
+
+        // Listener para o botão "Ver" individual
+        document.querySelectorAll('.preview-snap').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const snapName = btn.dataset.id;
+                const snap = snapshotHistory.find(s => s.name === snapName);
+                if (snap) {
+                    showSingleSnapshot(snap);
                 }
-            ]
-        };
+            });
+        });
+    }
+
+    function showSingleSnapshot(snap) {
+        const items = snap.items.filter(i => activeBuyer === 'all' || i.comprador === activeBuyer);
+        const rupture = items.filter(i => i.status === 'rupture');
+        const attention = items.filter(i => i.status === 'attention');
+        const suggest = items.filter(i => i.status === 'suggest');
+
+        modalBody.innerHTML = `
+            <div style="margin-bottom: 2rem;">
+                <h3>Relatório: ${snap.name}</h3>
+                <p style="color: var(--text-muted)">Data: ${snap.date} | Itens Analisados: ${items.length}</p>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                <div class="comp-box" style="border-left: 4px solid #fb7185;">
+                    <div style="font-size: 0.8rem; color: #fb7185;">RUPTURAS</div>
+                    <div style="font-size: 1.5rem; font-weight: 700;">${rupture.length}</div>
+                </div>
+                <div class="comp-box" style="border-left: 4px solid #f59e0b;">
+                    <div style="font-size: 0.8rem; color: #f59e0b;">ATENÇÃO</div>
+                    <div style="font-size: 1.5rem; font-weight: 700;">${attention.length}</div>
+                </div>
+                <div class="comp-box" style="border-left: 4px solid #34d399;">
+                    <div style="font-size: 0.8rem; color: #34d399;">SUGESTÃO</div>
+                    <div style="font-size: 1.5rem; font-weight: 700;">${suggest.length}</div>
+                </div>
+            </div>
+            <div class="table-container" style="max-height: 400px;">
+                <table>
+                    <thead>
+                        <tr><th>Código</th><th>Descrição</th><th>Status</th><th style="text-align:right">Valor</th></tr>
+                    </thead>
+                    <tbody>
+                        ${items.filter(i => i.status !== 'ok' && i.status !== 'ignored').map(i => `
+                            <tr>
+                                <td>${i.code}</td>
+                                <td>${i.desc}</td>
+                                <td><span class="badge badge-${i.status}">${i.status}</span></td>
+                                <td style="text-align:right">${formatCurrency(i.value)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        modal.style.display = 'flex';
+    }
+
+    function updateCompareButton() {
+        selectedCountEl.textContent = selectedSnapshots.size;
+        compareBtn.style.display = selectedSnapshots.size >= 2 ? 'block' : 'none';
+    }
+
+    function renderCharts(history) {
+        const ctx = document.getElementById('evolution-chart');
+        if (!ctx) return;
 
         if (evolutionChart) evolutionChart.destroy();
-        
+
         evolutionChart = new Chart(ctx, {
             type: 'line',
-            data: chartData,
+            data: {
+                labels: history.map(h => h.date),
+                datasets: [
+                    {
+                        label: 'Rupturas',
+                        data: history.map(h => h.summary.rupture.count),
+                        borderColor: '#fb7185',
+                        backgroundColor: 'rgba(251, 113, 133, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Atenção',
+                        data: history.map(h => h.summary.attention.count),
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }
+                ]
+            },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'top',
-                        labels: { color: '#94a3b8', font: { family: 'Outfit', size: 12 } }
-                    },
-                    datalabels: { display: false }
-                },
+                plugins: { legend: { display: false } },
                 scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                        ticks: { color: '#94a3b8' }
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: '#94a3b8' }
-                    }
+                    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    x: { grid: { display: false } }
                 }
             }
         });
     }
 
-    function renderValueChart(data) {
-        const ctx = document.getElementById('value-evolution-chart').getContext('2d');
-        const labels = data.map(d => formatDate(d.date));
-        
-        const chartData = {
-            labels: labels,
-            datasets: [
-                {
-                    label: 'Valor em Ruptura (Capital Parado)',
-                    data: data.map(d => d.rupture.value),
-                    borderColor: '#fb7185',
-                    backgroundColor: 'rgba(251, 113, 133, 0.2)',
-                    tension: 0.3,
-                    fill: true,
-                    borderWidth: 3
-                }
-            ]
-        };
+    function renderDailyDiff(history, idx) {
+        const grid = document.getElementById('daily-diff-grid');
+        const card = document.getElementById('daily-diff-card');
+        if (!grid || history.length < 2) return;
 
-        if (valueChart) valueChart.destroy();
-        
-        valueChart = new Chart(ctx, {
-            type: 'line',
-            data: chartData,
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(context.parsed.y);
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                        ticks: { 
-                            color: '#94a3b8',
-                            callback: function(value) {
-                                if (value >= 1000) return 'R$ ' + (value/1000).toFixed(1) + 'k';
-                                return 'R$ ' + value;
-                            }
-                        }
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: '#94a3b8' }
-                    }
-                }
-            }
-        });
-    }
+        card.style.display = 'block';
+        const snapOld = history[0]; // Sempre comparar com o início para ver o ganho acumulado
+        const snapNew = history[idx]; // Ponto atual da linha do tempo
 
-    let variationChart = null;
-    function renderVariationChart(data) {
-        // Find or create container for the new chart
-        let container = document.getElementById('variation-container');
-        if (!container) {
-            const row = document.createElement('div');
-            row.className = 'entradas-row-full';
-            row.style.marginBottom = '2rem';
-            row.innerHTML = `
-                <div class="chart-container-nf" id="variation-container" style="min-height: 400px;">
-                    <h3 style="margin-bottom: 1.5rem; color: var(--info);">Variação Diária da Ruptura (Melhora vs Piora)</h3>
-                    <div style="height: 300px; position: relative;">
-                        <canvas id="rupture-variation-chart"></canvas>
-                    </div>
-                </div>
-            `;
-            // Insert before the table
-            const tableSection = document.querySelector('.data-section');
-            tableSection.parentNode.insertBefore(row, tableSection);
-            container = document.getElementById('variation-container');
+        // Se o slider estiver no primeiro item, compara com o próximo só para não ficar vazio, ou oculta
+        if (idx === 0 && history.length > 1) {
+            // No primeiro dia, mostra comparativo com o último disponível? Ou avisa que é o ponto inicial
+            card.querySelector('h3').innerHTML = `<span class="header-icon">🔄</span> Ponto Inicial: ${snapOld.date}`;
+            grid.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding: 1rem; color: var(--text-muted);">Este é o primeiro relatório do histórico. Arraste a linha do tempo para ver a evolução.</div>`;
+            return;
         }
 
-        const ctx = document.getElementById('rupture-variation-chart').getContext('2d');
-        
-        // Skip first element as there's no variation
-        const labels = data.slice(1).map(d => formatDate(d.date));
-        const variations = data.slice(1).map((d, i) => {
-            const prev = data[i];
-            return d.rupture.value - prev.rupture.value;
-        });
+        // Atualizar título do card para refletir o período selecionado
+        const titleEl = card.querySelector('h3');
+        if (titleEl) {
+            titleEl.innerHTML = `<span class="header-icon">🔄</span> Evolução Acumulada (${snapOld.date} à ${snapNew.date})`;
+        }
 
-        const chartData = {
-            labels: labels,
-            datasets: [{
-                label: 'Variação Financeira',
-                data: variations,
-                backgroundColor: variations.map(v => v > 0 ? 'rgba(251, 113, 133, 0.6)' : 'rgba(52, 211, 153, 0.6)'),
-                borderColor: variations.map(v => v > 0 ? '#fb7185' : '#34d399'),
-                borderWidth: 1,
-                borderRadius: 4
-            }]
-        };
+        const res = calculateDiff(snapOld.displayItems, snapNew.displayItems);
 
-        if (variationChart) variationChart.destroy();
-        
-        variationChart = new Chart(ctx, {
-            type: 'bar',
-            data: chartData,
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const val = context.parsed.y;
-                                const sign = val > 0 ? '+' : '';
-                                return 'Delta: ' + sign + new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    y: {
-                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                        ticks: { color: '#94a3b8' }
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: '#94a3b8' }
-                    }
-                }
-            }
-        });
+        grid.innerHTML = `
+            <div class="comp-box" style="border-left: 4px solid #34d399;">
+                <div style="font-size: 0.8rem; color: #34d399; font-weight: 700;">✅ SANADOS NO PERÍODO</div>
+                <div style="font-size: 1.5rem; font-weight: 800;">${res.solved.length} itens</div>
+                <div style="font-size: 0.7rem; color: var(--text-muted);">Itens que saíram da ruptura desde o início.</div>
+            </div>
+            <div class="comp-box" style="border-left: 4px solid #fb7185;">
+                <div style="font-size: 0.8rem; color: #fb7185; font-weight: 700;">🚨 NOVOS EM RISCO</div>
+                <div style="font-size: 1.5rem; font-weight: 800;">${res.newRisks.length} itens</div>
+                <div style="font-size: 0.7rem; color: var(--text-muted);">Novas rupturas detectadas no período.</div>
+            </div>
+            <div class="comp-box" style="border-left: 4px solid #f59e0b;">
+                <div style="font-size: 0.8rem; color: #f59e0b; font-weight: 700;">📉 PIORARAM</div>
+                <div style="font-size: 1.5rem; font-weight: 800;">${res.worsened.length} itens</div>
+                <div style="font-size: 0.7rem; color: var(--text-muted);">Situação agravada entre o primeiro e último dia.</div>
+            </div>
+        `;
     }
 
-    if (folderUpload) folderUpload.addEventListener('change', handleFolderUpload);
+    function calculateDiff(itemsA, itemsB) {
+        const mapA = new Map(itemsA.filter(i => i.status !== 'ok' && i.status !== 'ignored').map(i => [i.code, i]));
+        const mapB = new Map(itemsB.filter(i => i.status !== 'ok' && i.status !== 'ignored').map(i => [i.code, i]));
 
-    // We no longer call fetchRuptureData() automatically since we need user to select a folder
-    // But we can check if there's cached data (optional)
+        const solved = [];
+        const newRisks = [];
+        const worsened = [];
+
+        mapA.forEach((itemA, code) => {
+            if (!mapB.has(code)) solved.push(itemA);
+            else {
+                const itemB = mapB.get(code);
+                const weights = { rupture: 3, attention: 2, suggest: 1 };
+                if (weights[itemB.status] > weights[itemA.status]) worsened.push({ from: itemA, to: itemB });
+            }
+        });
+
+        mapB.forEach((itemB, code) => {
+            if (!mapA.has(code)) newRisks.push(itemB);
+        });
+
+        return { solved, newRisks, worsened };
+    }
+
+    // --- Eventos ---
+    folderInput.addEventListener('change', async (e) => {
+        const files = Array.from(e.target.files).filter(f => f.name.match(/\.(xlsx|xls)$/i) && !f.name.startsWith('~$') && !f.name.toLowerCase().includes('leadtime'));
+        if (files.length === 0) return;
+
+        loadingOverlay.style.display = 'flex';
+        snapshotHistory = [];
+        selectedSnapshots.clear();
+        currentTimelineIdx = 0; // Reset timeline
+
+        for (let file of files) {
+            const snap = await processExcelFile(file);
+            if (snap) snapshotHistory.push(snap);
+        }
+
+        snapshotHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
+        updateDashboard();
+        loadingOverlay.style.display = 'none';
+    });
+
+    document.querySelectorAll('.buyer-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.buyer-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            activeBuyer = btn.dataset.buyer;
+            updateDashboard();
+        });
+    });
+
+    compareBtn.addEventListener('click', () => {
+        console.log("Iniciando comparação...");
+        const selected = snapshotHistory
+            .filter(s => selectedSnapshots.has(s.name))
+            .sort((a, b) => {
+                const dateA = new Date(a.date.includes('-') ? a.date : a.date.split('.').reverse().join('-'));
+                const dateB = new Date(b.date.includes('-') ? b.date : b.date.split('.').reverse().join('-'));
+                return dateA - dateB;
+            });
+
+        if (selected.length < 2) {
+            alert("Selecione pelo menos 2 arquivos para comparar.");
+            return;
+        }
+
+        const snapOld = selected[0];
+        const snapNew = selected[selected.length - 1];
+        
+        // Aplicar filtro de comprador nos itens da comparação também
+        const itemsOld = snapOld.items.filter(i => activeBuyer === 'all' || i.comprador === activeBuyer);
+        const itemsNew = snapNew.items.filter(i => activeBuyer === 'all' || i.comprador === activeBuyer);
+        
+        const res = calculateDiff(itemsOld, itemsNew);
+
+        modalBody.innerHTML = `
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem; background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: 8px;">
+                <div>
+                    <div style="color: var(--text-muted); font-size: 0.8rem;">Snapshot Inicial</div>
+                    <div style="font-weight: 700; font-size: 1.1rem;">${snapOld.date}</div>
+                    <div style="font-size: 0.8rem; opacity: 0.7;">${snapOld.name}</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="color: var(--text-muted); font-size: 0.8rem;">Snapshot Final</div>
+                    <div style="font-weight: 700; font-size: 1.1rem;">${snapNew.date}</div>
+                    <div style="font-size: 0.8rem; opacity: 0.7;">${snapNew.name}</div>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
+                <div class="comp-box">
+                    <h4 style="color: #34d399; margin-bottom: 1rem;">✅ Resolvidos (${res.solved.length})</h4>
+                    <div style="max-height: 400px; overflow-y: auto;">
+                        <table style="width: 100%; font-size: 0.8rem;">
+                            ${res.solved.map(i => `<tr><td>${i.code}</td><td>${i.desc.substring(0,25)}...</td><td style="text-align:right">${formatCurrency(i.value)}</td></tr>`).join('')}
+                        </table>
+                    </div>
+                </div>
+                <div class="comp-box">
+                    <h4 style="color: #fb7185; margin-bottom: 1rem;">🚨 Novos em Risco (${res.newRisks.length})</h4>
+                    <div style="max-height: 400px; overflow-y: auto;">
+                        <table style="width: 100%; font-size: 0.8rem;">
+                            ${res.newRisks.map(i => `<tr><td>${i.code}</td><td>${i.desc.substring(0,25)}...</td><td style="text-align:right; color:#fb7185">${formatCurrency(i.value)}</td></tr>`).join('')}
+                        </table>
+                    </div>
+                </div>
+                <div class="comp-box">
+                    <h4 style="color: #f59e0b; margin-bottom: 1rem;">📉 Pioraram (${res.worsened.length})</h4>
+                    <div style="max-height: 400px; overflow-y: auto;">
+                        <table style="width: 100%; font-size: 0.8rem;">
+                            ${res.worsened.map(w => `<tr><td>${w.to.code}</td><td><span style="font-size:0.7rem">${w.from.status}</span> → <span style="color:#fb7185; font-weight:700">${w.to.status}</span></td></tr>`).join('')}
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+        modal.style.display = 'flex';
+    });
+
+    closeModal.addEventListener('click', () => modal.style.display = 'none');
+    window.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
+
+    // Listener para o Slider de Linha do Tempo
+    const timelineRange = document.getElementById('timeline-range');
+    if (timelineRange) {
+        timelineRange.addEventListener('input', (e) => {
+            currentTimelineIdx = parseInt(e.target.value);
+            
+            // Recalcular historyFiltered localmente para atualizar a view
+            // (Poderia ser otimizado guardando historyFiltered globalmente)
+            const historyFiltered = snapshotHistory.map(snap => {
+                const filteredItems = snap.items.filter(i => activeBuyer === 'all' || i.comprador === activeBuyer);
+                const rupture = filteredItems.filter(i => i.status === 'rupture');
+                const attention = filteredItems.filter(i => i.status === 'attention');
+                const suggest = filteredItems.filter(i => i.status === 'suggest');
+                return {
+                    ...snap,
+                    displayItems: filteredItems,
+                    summary: {
+                        rupture: { count: rupture.length, value: rupture.reduce((acc, i) => acc + i.value, 0) },
+                        attention: { count: attention.length, value: attention.reduce((acc, i) => acc + (i.value * 2), 0) },
+                        suggest: { count: suggest.length, value: suggest.reduce((acc, i) => acc + (i.value * 3), 0) }
+                    }
+                };
+            });
+            
+            updateViewToSnapshot(historyFiltered, currentTimelineIdx);
+            
+            // Atualizar opacidade dos labels (ticks)
+            const ticks = document.querySelectorAll('#timeline-ticks span');
+            ticks.forEach((t, idx) => t.style.opacity = idx === currentTimelineIdx ? '1' : '0.5');
+        });
+    }
 });

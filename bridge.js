@@ -276,10 +276,13 @@ const server = http.createServer((req, res) => {
 
                 let ruptureCount = 0;
                 let ruptureValue = 0;
+                let ruptureInvest = 0;
                 let attentionCount = 0;
                 let attentionValue = 0;
+                let attentionInvest = 0;
                 let suggestCount = 0;
                 let suggestValue = 0;
+                let suggestInvest = 0;
                 let totalItems = rows.length;
 
                 // Identificar colunas de meses para cálculo de recorrência
@@ -354,12 +357,15 @@ const server = http.createServer((req, res) => {
                         if (medVenda > totalDisponivel) {
                             ruptureCount++;
                             ruptureValue += (medVenda * custo);
+                            ruptureInvest += Math.max(0, (medVenda - totalDisponivel) * custo);
                         } else if ((medVenda * 2) > totalDisponivel) {
                             attentionCount++;
                             attentionValue += (medVenda * 2 * custo);
+                            attentionInvest += Math.max(0, (medVenda * 2 - totalDisponivel) * custo);
                         } else if ((medVenda * 3) > totalDisponivel) {
                             suggestCount++;
                             suggestValue += (medVenda * 3 * custo);
+                            suggestInvest += Math.max(0, (medVenda * 3 - totalDisponivel) * custo);
                         }
                     }
                 });
@@ -368,9 +374,9 @@ const server = http.createServer((req, res) => {
                     file: file,
                     date: fileDate,
                     totalItems,
-                    rupture: { count: ruptureCount, value: ruptureValue },
-                    attention: { count: attentionCount, value: attentionValue },
-                    suggest: { count: suggestCount, value: suggestValue }
+                    rupture: { count: ruptureCount, value: ruptureValue, invest: ruptureInvest },
+                    attention: { count: attentionCount, value: attentionValue, invest: attentionInvest },
+                    suggest: { count: suggestCount, value: suggestValue, invest: suggestInvest }
                 });
             }
 
