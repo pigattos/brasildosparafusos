@@ -301,9 +301,9 @@ document.addEventListener('DOMContentLoaded', () => {
             results[item.status].total++;
             const currentStatus = currentMap.get(item.code) || 'ok';
             
-            // Lógica de "Desconto": saiu do estado original para um melhor ou OK
-            const severity = { 'rupture': 3, 'attention': 2, 'suggest': 1, 'ok': 0, 'ignored': 0 };
-            if (severity[currentStatus] < severity[item.status]) {
+            // Lógica de "Baixa": Considerar atendido apenas quando o item se torna SEGURO (ok)
+            // Itens em 'Sugestão' ainda são níveis de ruptura.
+            if (currentStatus === 'ok' || currentStatus === 'ignored') {
                 results[item.status].attended++;
             }
         });
