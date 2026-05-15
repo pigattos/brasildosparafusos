@@ -195,10 +195,14 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // 1. Ordenar por Data (Regra: Primeiro é a BASE)
+        // 1. Ordenar por Data
         snaps.sort((a, b) => new Date(a.date) - new Date(b.date));
         snapshotHistory = snaps;
-        baseSnapshot = snaps[0];
+        
+        // Regra de Ouro: O arquivo "07.05.2026" é a nossa BASE HISTÓRICA FIXA
+        const explicitBase = snaps.find(s => s.name.includes('07.05.2026'));
+        baseSnapshot = explicitBase || snaps[0];
+        
         currentTimelineIdx = snaps.length - 1;
 
         updateDashboard();
