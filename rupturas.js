@@ -283,8 +283,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!grid || history.length < 2) return;
 
         card.style.display = 'block';
-        const snapBase = history[0];
+        const snapBase = history[0]; // 07/05/2026
         const snapCurrent = history[idx];
+        const dateBaseStr = snapBase.date.split('-').reverse().join('/');
 
         // Comparar item por item do base com o estado no current
         const baseItems = snapBase.displayItems.filter(i => i.status !== 'ok' && i.status !== 'ignored');
@@ -298,8 +299,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         baseItems.forEach(item => {
             results[item.status].total++;
-            const currentStatus = currentMap.get(item.code);
-            if (!currentStatus || currentStatus === 'ok' || currentStatus === 'ignored') {
+            const currentStatus = currentMap.get(item.code) || 'ok';
+            
+            // Lógica de "Desconto": saiu do estado original para um melhor ou OK
+            const severity = { 'rupture': 3, 'attention': 2, 'suggest': 1, 'ok': 0, 'ignored': 0 };
+            if (severity[currentStatus] < severity[item.status]) {
                 results[item.status].attended++;
             }
         });
@@ -317,24 +321,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const remaining = totalInitial - totalAttended;
         const daysToFinish = ratePerDay > 0 ? Math.ceil(remaining / ratePerDay) : '∞';
 
-        projectionEl.innerHTML = `🚀 Projeção: ${daysToFinish} dias para zerar pendências (Ritmo: ${ratePerDay.toFixed(1)} itens/dia)`;
+        projectionEl.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <span>📅 Base: <strong>${dateBaseStr}</strong> vs <strong>${snapCurrent.date.split('-').reverse().join('/')}</strong></span>
+                <span>🚀 Projeção: <strong>${daysToFinish} dias</strong> para zerar pendências (${ratePerDay.toFixed(1)} itens/dia)</span>
+            </div>
+        `;
 
         grid.innerHTML = `
             <div class="comp-box" style="border-top: 3px solid #fb7185;">
                 <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; margin-bottom: 0.5rem;">RUPTURAS ATENDIDAS</div>
-                <div style="font-size: 1.4rem; font-weight: 800;">${results.rupture.attended} / ${results.rupture.total}</div>
+                <div style="font-size: 1.4rem; font-weight: 800;">${results.rupture.attended} / ${results.rupture.total} <small style="font-size: 0.7rem; opacity: 0.6;">Resolvidos</small></div>
                 <div class="progress-bar-mini" style="background: rgba(251, 113, 133, 0.1);"><div style="width: ${(results.rupture.attended / results.rupture.total * 100) || 0}%; background: #fb7185;"></div></div>
                 <div style="font-size: 0.65rem; margin-top: 0.5rem; color: #fb7185;">${((results.rupture.attended / results.rupture.total * 100) || 0).toFixed(1)}% de eficiência</div>
             </div>
             <div class="comp-box" style="border-top: 3px solid #f59e0b;">
                 <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; margin-bottom: 0.5rem;">ATENÇÕES ATENDIDAS</div>
-                <div style="font-size: 1.4rem; font-weight: 800;">${results.attention.attended} / ${results.attention.total}</div>
+                <div style="font-size: 1.4rem; font-weight: 800;">${results.attention.attended} / ${results.attention.total} <small style="font-size: 0.7rem; opacity: 0.6;">Resolvidos</small></div>
                 <div class="progress-bar-mini" style="background: rgba(245, 158, 11, 0.1);"><div style="width: ${(results.attention.attended / results.attention.total * 100) || 0}%; background: #f59e0b;"></div></div>
                 <div style="font-size: 0.65rem; margin-top: 0.5rem; color: #f59e0b;">${((results.attention.attended / results.attention.total * 100) || 0).toFixed(1)}% de eficiência</div>
             </div>
             <div class="comp-box" style="border-top: 3px solid #34d399;">
                 <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; margin-bottom: 0.5rem;">SUGESTÕES ATENDIDAS</div>
-                <div style="font-size: 1.4rem; font-weight: 800;">${results.suggest.attended} / ${results.suggest.total}</div>
+                <div style="font-size: 1.4rem; font-weight: 800;">${results.suggest.attended} / ${results.suggest.total} <small style="font-size: 0.7rem; opacity: 0.6;">Resolvidos</small></div>
                 <div class="progress-bar-mini" style="background: rgba(52, 211, 153, 0.1);"><div style="width: ${(results.suggest.attended / results.suggest.total * 100) || 0}%; background: #34d399;"></div></div>
                 <div style="font-size: 0.65rem; margin-top: 0.5rem; color: #34d399;">${((results.suggest.attended / results.suggest.total * 100) || 0).toFixed(1)}% de eficiência</div>
             </div>
