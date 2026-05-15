@@ -1,13 +1,10 @@
 /**
- * Inteligência Evolutiva de Abastecimento v4.0
- * Baseado no novo Spec de Análise Evolutiva
- * 
- * Regra: Primeiro arquivo = BASE HISTÓRICA FIXA
+ * Inteligência Evolutiva de Abastecimento v4.1
+ * Correção de Robustez e Tratamento de Erros
  */
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("Inteligência Evolutiva v4.0 Inicializada");
+    console.log("Inteligência Evolutiva v4.1 Inicializada");
 
-    // --- Configurações de Criticidade (Novo Spec) ---
     const CRITICIDADE = {
         'rupture': { label: 'Ruptura', weight: 3, color: '#fb7185' },
         'attention': { label: 'Atenção', weight: 2, color: '#f59e0b' },
@@ -16,10 +13,9 @@ document.addEventListener('DOMContentLoaded', () => {
         'ignored': { label: 'Ignorado', weight: 0, color: '#9ca3af' }
     };
 
-    const RECORRENCIA_MINIMA = 0.17; // > 17%
+    const RECORRENCIA_MINIMA = 0.17;
 
-    // --- Estado Global ---
-    let snapshotHistory = []; // { name, date, itemsMap, displayItems }
+    let snapshotHistory = [];
     let baseSnapshot = null;
     let currentSnapshot = null;
     let currentTimelineIdx = 0;
@@ -27,20 +23,17 @@ document.addEventListener('DOMContentLoaded', () => {
     let evolutionChart = null;
     let buyerMap = JSON.parse(localStorage.getItem('buyerMap') || '{}');
 
-    // --- Elementos DOM ---
     const folderInputs = [document.getElementById('folder-upload'), document.getElementById('folder-upload-welcome')];
     const mainContent = document.getElementById('main-content');
     const welcomeState = document.getElementById('welcome-state');
     const loadingOverlay = document.getElementById('loading-overlay');
+    const loadingText = loadingOverlay.querySelector('.loading-text');
     const timelineRange = document.getElementById('timeline-range');
     const timelineTicks = document.getElementById('timeline-ticks');
     const tableBody = document.getElementById('evolution-table-body');
     const tableSearch = document.getElementById('table-search');
     const evolutionFilter = document.getElementById('evolution-filter');
 
-    // --- Utilitários ---
-    const formatCurrency = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    
     function parseNumeric(val) {
         if (val === undefined || val === null || val === '') return 0;
         if (typeof val === 'number') return val;
@@ -48,13 +41,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (str.startsWith('.') || str.startsWith(',')) str = '0' + str;
         const hasComma = str.includes(',');
         const hasDot = str.includes('.');
-
         if (hasComma && hasDot) {
-            if (str.lastIndexOf(',') > str.lastIndexOf('.')) {
-                str = str.replace(/\./g, '').replace(',', '.');
-            } else {
-                str = str.replace(/,/g, '');
-            }
+            if (str.lastIndexOf(',') > str.lastIndexOf('.')) str = str.replace(/\./g, '').replace(',', '.');
+            else str = str.replace(/,/g, '');
         } else if (hasComma) {
             const parts = str.split(',');
             if (parts.length > 2 || parts[1].length === 3) str = str.replace(/,/g, '');
@@ -78,7 +67,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     }
 
-    // --- Processamento de Arquivos ---
     async function processExcelFile(file) {
         return new Promise((resolve) => {
             const reader = new FileReader();
@@ -89,10 +77,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
                     const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
                     
-                    // Achar cabeçalho
                     let headerIndex = -1;
-                    for (let i = 0; i < Math.min(rawRows.length, 20); i++) {
-                        if (rawRows[i].some(c => String(c||'').toLowerCase().includes('estoque') || String(c||'').toLowerCase().includes('produto'))) {
+                    for (let i = 0; i < Math.min(rawRows.length, 30); i++) {
+                        if (rawRows[i].some(c => {
+                            const s = String(c||'').toLowerCase();
+                            return s.includes('estoque') || s.includes('produto') || s.includes('descri');
+                        })) {
                             headerIndex = i;
                             break;
                         }
@@ -114,11 +104,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     };
 
                     const monthCols = headers.filter(h => h && /^\d{1,2}\/\d{2,4}$/.test(String(h)));
-
                     const itemsMap = new Map();
+
                     rows.forEach(row => {
                         const code = String(row[colMap.code] || '').trim();
-                        if (!code) return;
+                        if (!code || code === 'undefined') return;
 
                         const estoque = parseNumeric(row[colMap.estoque]);
                         const encomendas = parseNumeric(row[colMap.encomendas]);
@@ -160,17 +150,16 @@ document.addEventListener('DOMContentLoaded', () => {
                             comprador,
                             status,
                             weight: CRITICIDADE[status].weight,
-                            value: medVenda * (row['Custo Unitário'] || row['Custo'] || 1) // simplificado
+                            value: medVenda * parseNumeric(row['Custo Unitário'] || row['Custo'] || 1)
                         });
                     });
 
-                    // Tentar extrair data do nome do arquivo (07.05.2026.xlsx)
                     let fileDate = file.name.match(/(\d{2})[.\/](\d{2})[.\/](\d{4})/);
                     let dateStr = fileDate ? `${fileDate[3]}-${fileDate[2]}-${fileDate[1]}` : new Date().toISOString().split('T')[0];
 
                     resolve({ name: file.name, date: dateStr, itemsMap });
                 } catch (err) {
-                    console.error(err);
+                    console.error("Erro ao processar arquivo:", file.name, err);
                     resolve(null);
                 }
             };
@@ -178,54 +167,73 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Orquestração de Dados ---
     async function handleFiles(files) {
-        loadingOverlay.style.display = 'flex';
-        const filteredFiles = Array.from(files).filter(f => f.name.match(/\.(xlsx|xls)$/i) && !f.name.startsWith('~$'));
-        
-        const snaps = [];
-        for (let f of filteredFiles) {
-            const res = await processExcelFile(f);
-            if (res) snaps.push(res);
-        }
+        try {
+            loadingOverlay.style.display = 'flex';
+            const filteredFiles = Array.from(files).filter(f => f.name.match(/\.(xlsx|xls)$/i) && !f.name.startsWith('~$'));
+            
+            if (filteredFiles.length === 0) {
+                loadingOverlay.style.display = 'none';
+                alert("Nenhum arquivo Excel encontrado na pasta selecionada.");
+                return;
+            }
 
-        if (snaps.length === 0) {
+            const snaps = [];
+            let processedCount = 0;
+
+            for (let f of filteredFiles) {
+                processedCount++;
+                loadingText.innerHTML = `Processando arquivos... (${processedCount}/${filteredFiles.length})<br><small style="opacity:0.7">${f.name}</small>`;
+                const res = await processExcelFile(f);
+                if (res) snaps.push(res);
+            }
+
+            if (snaps.length === 0) {
+                loadingOverlay.style.display = 'none';
+                alert("Não foi possível extrair dados dos arquivos. Verifique os cabeçalhos.");
+                return;
+            }
+
+            snaps.sort((a, b) => new Date(a.date) - new Date(b.date));
+            snapshotHistory = snaps;
+            
+            const explicitBase = snaps.find(s => s.name.includes('07.05.2026'));
+            baseSnapshot = explicitBase || snaps[0];
+            currentTimelineIdx = snaps.length - 1;
+
+            updateDashboard();
+            
+            welcomeState.style.display = 'none';
+            mainContent.style.display = 'block';
             loadingOverlay.style.display = 'none';
-            alert("Nenhum arquivo válido encontrado.");
-            return;
+
+        } catch (error) {
+            console.error("Erro crítico no handleFiles:", error);
+            loadingOverlay.style.display = 'none';
+            alert("Ocorreu um erro ao processar os dados: " + error.message);
         }
-
-        // 1. Ordenar por Data
-        snaps.sort((a, b) => new Date(a.date) - new Date(b.date));
-        snapshotHistory = snaps;
-        
-        // Regra de Ouro: O arquivo "07.05.2026" é a nossa BASE HISTÓRICA FIXA
-        const explicitBase = snaps.find(s => s.name.includes('07.05.2026'));
-        baseSnapshot = explicitBase || snaps[0];
-        
-        currentTimelineIdx = snaps.length - 1;
-
-        updateDashboard();
-        
-        welcomeState.style.display = 'none';
-        mainContent.style.display = 'block';
-        loadingOverlay.style.display = 'none';
     }
 
     function updateDashboard() {
-        const snap = snapshotHistory[currentTimelineIdx];
-        if (!snap) return;
+        try {
+            const snap = snapshotHistory[currentTimelineIdx];
+            if (!snap) return;
 
-        currentSnapshot = snap;
-        document.getElementById('base-date-display').textContent = baseSnapshot.date.split('-').reverse().join('/');
-        document.getElementById('current-snapshot-date').textContent = snap.date.split('-').reverse().join('/');
+            currentSnapshot = snap;
+            document.getElementById('base-date-display').textContent = baseSnapshot.date.split('-').reverse().join('/');
+            document.getElementById('current-snapshot-date').textContent = snap.date.split('-').reverse().join('/');
 
-        renderTimeline();
-        calculateEvolution();
-        renderCharts();
-        renderTable();
-        updatePerformance();
-        updateBuyerFilter();
+            renderTimeline();
+            calculateEvolution();
+            renderCharts();
+            renderTable();
+            updatePerformance();
+            updateBuyerFilter();
+        } catch (e) {
+            console.error("Erro ao atualizar dashboard:", e);
+            alert("Erro ao renderizar dados: " + e.message);
+            loadingOverlay.style.display = 'none';
+        }
     }
 
     function renderTimeline() {
@@ -247,18 +255,14 @@ document.addEventListener('DOMContentLoaded', () => {
     function calculateEvolution() {
         const baseItems = Array.from(baseSnapshot.itemsMap.values());
         const currentItems = currentSnapshot.itemsMap;
-
-        // Filtrar por Comprador se necessário
         const targetBaseItems = baseItems.filter(i => activeBuyer === 'all' || i.comprador === activeBuyer);
         
         let recovered = { rupture: 0, attention: 0, suggest: 0, total: 0 };
         let worsened = 0;
-        let stable = 0;
 
         targetBaseItems.forEach(itemBase => {
             const itemCurrent = currentItems.get(itemBase.code);
-            const currentWeight = itemCurrent ? itemCurrent.weight : 0; // se não existe no atual, assumimos que resolveu (seguro)
-            
+            const currentWeight = itemCurrent ? itemCurrent.weight : 0;
             const evolution = itemBase.weight - currentWeight;
 
             if (evolution > 0) {
@@ -268,12 +272,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 else if (itemBase.status === 'suggest') recovered.suggest++;
             } else if (evolution < 0) {
                 worsened++;
-            } else if (itemBase.weight > 0) {
-                stable++;
             }
         });
 
-        // KPI's
         document.getElementById('global-recovered-count').textContent = recovered.total;
         document.getElementById('rupture-recovered').textContent = recovered.rupture;
         document.getElementById('attention-recovered').textContent = recovered.attention;
@@ -283,21 +284,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const efficiency = baseTotalRisk > 0 ? (recovered.total / baseTotalRisk * 100) : 0;
         document.getElementById('efficiency-percent').textContent = `${efficiency.toFixed(1)}%`;
         
-        // Percentuais de cada nível
         const baseRuptures = targetBaseItems.filter(i => i.status === 'rupture').length;
         const baseAttentions = targetBaseItems.filter(i => i.status === 'attention').length;
-        
         document.getElementById('rupture-recovered-percent').textContent = baseRuptures > 0 ? `${(recovered.rupture / baseRuptures * 100).toFixed(1)}% de sucesso` : 'N/A';
         document.getElementById('attention-recovered-percent').textContent = baseAttentions > 0 ? `${(recovered.attention / baseAttentions * 100).toFixed(1)}% de sucesso` : 'N/A';
     }
 
     function renderCharts() {
-        const ctx = document.getElementById('evolution-chart').getContext('2d');
+        const canvas = document.getElementById('evolution-chart');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
         if (evolutionChart) evolutionChart.destroy();
 
         const historyLabels = snapshotHistory.map(s => s.date.split('-').reverse().slice(0,2).join('/'));
-        
-        // Calcular Peso Total de Risco por snapshot para o gráfico
         const weightHistory = snapshotHistory.map(snap => {
             const items = Array.from(snap.itemsMap.values()).filter(i => activeBuyer === 'all' || i.comprador === activeBuyer);
             return items.reduce((acc, i) => acc + i.weight, 0);
@@ -308,14 +307,13 @@ document.addEventListener('DOMContentLoaded', () => {
             data: {
                 labels: historyLabels,
                 datasets: [{
-                    label: 'Índice de Criticidade (Peso Total)',
+                    label: 'Criticidade Total',
                     data: weightHistory,
                     borderColor: '#6366f1',
                     backgroundColor: 'rgba(99, 102, 241, 0.1)',
                     fill: true,
                     tension: 0.4,
-                    pointRadius: 6,
-                    pointBackgroundColor: '#6366f1'
+                    pointRadius: snapshotHistory.length > 30 ? 2 : 5
                 }]
             },
             options: {
@@ -323,15 +321,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 maintainAspectRatio: false,
                 plugins: { legend: { display: false } },
                 scales: {
-                    y: { 
-                        beginAtZero: true, 
-                        grid: { color: 'rgba(255,255,255,0.05)' },
-                        ticks: { color: '#9ca3af' }
-                    },
-                    x: { 
-                        grid: { display: false },
-                        ticks: { color: '#9ca3af' }
-                    }
+                    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    x: { grid: { display: false } }
                 }
             }
         });
@@ -340,7 +331,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderTable() {
         const searchTerm = tableSearch.value.toLowerCase();
         const filterVal = evolutionFilter.value;
-        
         const baseItems = Array.from(baseSnapshot.itemsMap.values());
         const currentItems = currentSnapshot.itemsMap;
 
@@ -354,21 +344,20 @@ document.addEventListener('DOMContentLoaded', () => {
             .filter(row => {
                 const matchSearch = row.itemBase.code.toLowerCase().includes(searchTerm) || row.itemBase.desc.toLowerCase().includes(searchTerm);
                 if (!matchSearch) return false;
-                
                 if (filterVal === 'improved') return row.evolution > 0;
                 if (filterVal === 'worsened') return row.evolution < 0;
                 if (filterVal === 'stable') return row.evolution === 0 && row.itemBase.weight > 0;
                 return true;
             });
 
-        tableBody.innerHTML = rows.slice(0, 100).map(row => `
+        tableBody.innerHTML = rows.slice(0, 50).map(row => `
             <tr>
-                <td style="font-weight: 600;">${row.itemBase.code}</td>
-                <td style="font-size: 0.85rem; opacity: 0.9;">${row.itemBase.desc.substring(0, 40)}...</td>
-                <td style="font-size: 0.75rem; color: var(--text-muted);">${row.itemBase.fornecedor.substring(0, 20)}</td>
-                <td style="text-align: center;"><span class="badge badge-${row.itemBase.status}">${row.itemBase.status}</span></td>
-                <td style="text-align: center;"><span class="badge badge-${row.itemCurrent.status}">${row.itemCurrent.status}</span></td>
-                <td style="text-align: center; font-weight: 800; color: ${row.evolution > 0 ? '#34d399' : (row.evolution < 0 ? '#fb7185' : '#9ca3af')}">
+                <td style="font-weight:600">${row.itemBase.code}</td>
+                <td style="font-size:0.8rem">${row.itemBase.desc.substring(0, 35)}...</td>
+                <td style="font-size:0.7rem; color:var(--text-muted)">${row.itemBase.fornecedor.substring(0, 15)}</td>
+                <td style="text-align:center"><span class="badge badge-${row.itemBase.status}">${row.itemBase.status}</span></td>
+                <td style="text-align:center"><span class="badge badge-${row.itemCurrent.status}">${row.itemCurrent.status}</span></td>
+                <td style="text-align:center; font-weight:800; color: ${row.evolution > 0 ? '#34d399' : (row.evolution < 0 ? '#fb7185' : '#9ca3af')}">
                     ${row.evolution > 0 ? '↑' : (row.evolution < 0 ? '↓' : '=')} ${Math.abs(row.evolution)}
                 </td>
                 <td>
@@ -382,45 +371,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updatePerformance() {
         const perfList = document.getElementById('performance-list');
-        const currentItems = Array.from(currentSnapshot.itemsMap.values());
-        
-        // Agrupar por Comprador (Itens Recuperados)
         const buyers = {};
         const baseItems = Array.from(baseSnapshot.itemsMap.values());
         
         baseItems.forEach(iBase => {
             const iCurr = currentSnapshot.itemsMap.get(iBase.code) || { weight: 0 };
-            const evol = iBase.weight - iCurr.weight;
-            if (evol > 0) {
+            if (iBase.weight - iCurr.weight > 0) {
                 buyers[iBase.comprador] = (buyers[iBase.comprador] || 0) + 1;
             }
         });
 
         const sortedBuyers = Object.entries(buyers).sort((a, b) => b[1] - a[1]);
-
-        perfList.innerHTML = sortedBuyers.map(([name, count], idx) => `
+        perfList.innerHTML = sortedBuyers.slice(0, 5).map(([name, count], idx) => `
             <div class="perf-item">
                 <div class="perf-rank">${idx + 1}</div>
                 <div class="perf-info">
                     <div class="perf-name">${name}</div>
-                    <div class="perf-sub">${count} itens recuperados</div>
+                    <div class="perf-sub">${count} recuperações</div>
                 </div>
-                <div class="perf-bar-wrapper">
-                    <div class="perf-bar" style="width: ${(count / sortedBuyers[0][1] * 100)}%"></div>
-                </div>
+                <div class="perf-bar-wrapper"><div class="perf-bar" style="width: ${(count / sortedBuyers[0][1] * 100)}%"></div></div>
             </div>
         `).join('');
     }
 
     function updateBuyerFilter() {
         const container = document.getElementById('buyer-filter-container');
-        const buyers = new Set(snapshotHistory.flatMap(s => Array.from(s.itemsMap.values()).map(i => i.comprador)));
+        const buyerSet = new Set();
+        snapshotHistory.forEach(s => s.itemsMap.forEach(i => buyerSet.add(i.comprador)));
         
-        const currentActive = activeBuyer;
+        const buyers = Array.from(buyerSet).sort();
         container.innerHTML = `<button class="buyer-btn ${activeBuyer === 'all' ? 'active' : ''}" data-buyer="all">👤 Todos</button>` + 
-            Array.from(buyers).sort().map(b => `
-                <button class="buyer-btn ${activeBuyer === b ? 'active' : ''}" data-buyer="${b}">${b}</button>
-            `).join('');
+            buyers.map(b => `<button class="buyer-btn ${activeBuyer === b ? 'active' : ''}" data-buyer="${b}">${b}</button>`).join('');
 
         container.querySelectorAll('.buyer-btn').forEach(btn => {
             btn.onclick = () => {
@@ -430,7 +411,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Listeners ---
     folderInputs.forEach(input => input.onchange = (e) => handleFiles(e.target.files));
     timelineRange.oninput = (e) => {
         currentTimelineIdx = parseInt(e.target.value);
@@ -438,5 +418,4 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     tableSearch.oninput = renderTable;
     evolutionFilter.onchange = renderTable;
-
 });
