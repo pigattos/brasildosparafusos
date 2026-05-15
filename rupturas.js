@@ -62,12 +62,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (hasComma && hasDot) {
             if (str.lastIndexOf(',') > str.lastIndexOf('.')) {
-                str = str.replace(/\./g, '').replace(',', '.'); // BR
+                str = str.replace(/\./g, '').replace(',', '.');
             } else {
-                str = str.replace(/,/g, ''); // INT
+                str = str.replace(/,/g, '');
             }
         } else if (hasComma) {
-            str = str.replace(',', '.');
+            const parts = str.split(',');
+            if (parts.length > 2) {
+                str = str.replace(/,/g, '');
+            } else if (parts[1].length === 3) {
+                str = str.replace(',', '');
+            } else {
+                str = str.replace(',', '.');
+            }
         }
         
         const num = parseFloat(str);
@@ -160,15 +167,14 @@ document.addEventListener('DOMContentLoaded', () => {
                                 }
                             });
                             recorrencia = activeMonths / monthCols.length;
-                            if (medVenda === 0 && activeMonths > 0) medVenda = sumHistory / activeMonths;
+                            // Sincronizar: Se tem histórico, a média é sempre baseada nele
+                            medVenda = activeMonths > 0 ? sumHistory / activeMonths : 0;
                         } else {
                             // Se não tiver meses, tenta pegar recorrencia pronta se existir
                             const recRaw = parseNumeric(row[findColumn(headers, ['Recorrência', 'Frequência', 'Giro Freq'])]);
                             recorrencia = recRaw > 1 ? recRaw / 100 : recRaw;
                         }
 
-                        // Fallback: se tem venda mas recorrencia zerada, assume 34% para entrar na análise
-                        if (medVenda > 0 && recorrencia === 0) recorrencia = 0.34;
 
                         // Classificação de Status
                         let status = 'ok';
@@ -301,9 +307,10 @@ document.addEventListener('DOMContentLoaded', () => {
             results[item.status].total++;
             const currentStatus = currentMap.get(item.code) || 'ok';
             
-            // Lógica de "Baixa": Considerar atendido apenas quando o item se torna SEGURO (ok)
-            // Itens em 'Sugestão' ainda são níveis de ruptura.
-            if (currentStatus === 'ok' || currentStatus === 'ignored') {
+            // VOLTAR AO QUE ESTAVA: Lógica de melhoria de severidade
+            // Considera "Atendido" se o status atual for melhor (menos severo) que o original
+            const severity = { 'rupture': 3, 'attention': 2, 'suggest': 1, 'ok': 0, 'ignored': 0 };
+            if (severity[currentStatus] < severity[item.status]) {
                 results[item.status].attended++;
             }
         });
