@@ -350,11 +350,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 return true;
             });
 
-        tableBody.innerHTML = rows.slice(0, 50).map(row => `
+        tableBody.innerHTML = rows.slice(0, 50).map(row => {
+            const desc = String(row.itemBase.desc || 'S/D');
+            const fornecedor = String(row.itemBase.fornecedor || 'N/D');
+            const code = String(row.itemBase.code || '0');
+            
+            return `
             <tr>
-                <td style="font-weight:600">${row.itemBase.code}</td>
-                <td style="font-size:0.8rem">${row.itemBase.desc.substring(0, 35)}...</td>
-                <td style="font-size:0.7rem; color:var(--text-muted)">${row.itemBase.fornecedor.substring(0, 15)}</td>
+                <td style="font-weight:600">${code}</td>
+                <td style="font-size:0.8rem">${desc.substring(0, 35)}${desc.length > 35 ? '...' : ''}</td>
+                <td style="font-size:0.7rem; color:var(--text-muted)">${fornecedor.substring(0, 15)}</td>
                 <td style="text-align:center"><span class="badge badge-${row.itemBase.status}">${row.itemBase.status}</span></td>
                 <td style="text-align:center"><span class="badge badge-${row.itemCurrent.status}">${row.itemCurrent.status}</span></td>
                 <td style="text-align:center; font-weight:800; color: ${row.evolution > 0 ? '#34d399' : (row.evolution < 0 ? '#fb7185' : '#9ca3af')}">
@@ -366,7 +371,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </span>
                 </td>
             </tr>
-        `).join('');
+        `; }).join('');
     }
 
     function updatePerformance() {
