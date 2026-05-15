@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log("Rupturas Analítico v3.0 Inicializado");
 
     // --- Configurações ---
-    const RECORRENCIA_MINIMA = 0.16; // 17% de recorrência (1/6 meses)
+    const RECORRENCIA_MINIMA = 0.17; // > 17% (mínimo 2 meses em 6)
     
     // --- Estado Global ---
     let snapshotHistory = []; // Array de objetos { name, date, summary, items, rawData }
@@ -53,15 +53,25 @@ document.addEventListener('DOMContentLoaded', () => {
     function parseNumeric(val) {
         if (val === undefined || val === null || val === '') return 0;
         if (typeof val === 'number') return val;
-        let s = String(val).replace('R$', '').replace(/\s/g, '').trim();
-        if (s.includes(',') && s.includes('.')) {
-            if (s.lastIndexOf(',') > s.lastIndexOf('.')) s = s.replace(/\./g, '').replace(',', '.');
-            else s = s.replace(/,/g, '');
-        } else if (s.includes(',')) {
-            s = s.replace(',', '.');
+        let str = val.toString().replace('R$', '').replace(/\s/g, '').trim();
+        
+        if (str.startsWith('.') || str.startsWith(',')) str = '0' + str;
+
+        const hasComma = str.includes(',');
+        const hasDot = str.includes('.');
+
+        if (hasComma && hasDot) {
+            if (str.lastIndexOf(',') > str.lastIndexOf('.')) {
+                str = str.replace(/\./g, '').replace(',', '.'); // BR
+            } else {
+                str = str.replace(/,/g, ''); // INT
+            }
+        } else if (hasComma) {
+            str = str.replace(',', '.');
         }
-        const n = parseFloat(s);
-        return isNaN(n) ? 0 : n;
+        
+        const num = parseFloat(str);
+        return isNaN(num) ? 0 : num;
     }
 
     // --- Processamento de Arquivos ---
@@ -100,11 +110,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     // 2. Mapear Colunas Chave
                     const colMap = {
-                        codigo: findColumn(headers, ['Código', 'Cód.', 'Cod', 'Item', 'Produto ID', 'Referencia']),
-                        desc: findColumn(headers, ['Descrição', 'Desc', 'Nome', 'Produto Descrição']),
-                        estoque: findColumn(headers, ['Estoque', 'Saldo', 'Saldo Atual', 'Disponível', 'Disponivel', 'Qtd. Estoque']),
-                        encomendas: findColumn(headers, ['Encomendas', 'A Receber', 'Pedido Compra', 'Saldo Pedido', 'A Entregar', 'Pendencia']),
-                        custo: findColumn(headers, ['Custo', 'Preço Reposição', 'Unitário', 'Vlr. Unitário', 'Custo Médio']),
+                        codigo: findColumn(headers, ['Produto', 'Código', 'Item', 'Cód.', 'ID', 'Referencia']),
+                        desc: findColumn(headers, ['Descrição longa do produto', 'Descrição', 'Desc', 'Nome', 'Produto Descrição', 'Texto']),
+                        estoque: findColumn(headers, ['Estoque', 'Saldo', 'Qtd. Estoque', 'Estoque Total', 'Saldo Atual', 'Saldo Disponível', 'Disp.', 'Qtd. Disponível', 'Estoque Atual']),
+                        encomendas: findColumn(headers, [
+                            'Encomendas', 'Qtd. Encomenda', 'Saldo Pedido Compra', 'Saldo Ped. Compra', 'Pedido Compra', 
+                            'Qtd. em Pedido Compra', 'Qtd. no Pedido Compra', 'Saldo a Receber', 'A Receber', 'Pedidos', 
+                            'Qtd. Pedida', 'Saldo Pedido', 'Compras', 'Qtd em Pedido', 'Qtd. Ped.', 'Saldo Ped.', 
+                            'Pendência', 'Qtd. no Pedido', 'Encomenda', 'Pedido', 'Qtd Ped Compra', 'A Receber Total',
+                            'A Entregar', 'Saldo a Entregar', 'Qtd. Pendente', 'Pendente', 'Saldo O.C.', 'Ord. Compra'
+                        ]),
+                        custo: findColumn(headers, ['Preço reposição', 'Custo aquisição', 'Custo Unitário', 'Custo', 'Preço Custo', 'Vlr. Custo', 'Custo Médio', 'Unitário']),
                         medVenda: findColumn(headers, ['Média Venda', 'Giro Mensal', 'Média Mensal', 'Giro Médio', 'Giro Dia', 'Media']),
                         vendasTotal: findColumn(headers, ['Vendas', 'Giro Total', 'Total Vendas', 'Saidas', 'Qtd. Vendida']),
                         comprador: findColumn(headers, ['Comprador', 'Responsável', 'Gestor'])
@@ -157,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         // Classificação de Status
                         let status = 'ok';
                         const disponivel = estoque + encomendas;
-                        if (recorrencia >= RECORRENCIA_MINIMA) {
+                        if (recorrencia > RECORRENCIA_MINIMA) {
                             if (medVenda > disponivel) status = 'rupture';
                             else if ((medVenda * 2) > disponivel) status = 'attention';
                             else if ((medVenda * 3) > disponivel) status = 'suggest';
@@ -257,6 +273,78 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderSummary(history, idx);
         renderDailyDiff(history, idx);
+        renderEfficiency(history, idx);
+    }
+
+    function renderEfficiency(history, idx) {
+        const grid = document.getElementById('efficiency-grid');
+        const card = document.getElementById('efficiency-card');
+        const projectionEl = document.getElementById('efficiency-projection');
+        if (!grid || history.length < 2) return;
+
+        card.style.display = 'block';
+        const snapBase = history[0];
+        const snapCurrent = history[idx];
+
+        // Comparar item por item do base com o estado no current
+        const baseItems = snapBase.displayItems.filter(i => i.status !== 'ok' && i.status !== 'ignored');
+        const currentMap = new Map(snapCurrent.displayItems.map(i => [i.code, i.status]));
+
+        const results = {
+            rupture: { total: 0, attended: 0 },
+            attention: { total: 0, attended: 0 },
+            suggest: { total: 0, attended: 0 }
+        };
+
+        baseItems.forEach(item => {
+            results[item.status].total++;
+            const currentStatus = currentMap.get(item.code);
+            if (!currentStatus || currentStatus === 'ok' || currentStatus === 'ignored') {
+                results[item.status].attended++;
+            }
+        });
+
+        const totalInitial = results.rupture.total + results.attention.total + results.suggest.total;
+        const totalAttended = results.rupture.attended + results.attention.attended + results.suggest.attended;
+        
+        // Cálculo de Projeção
+        const dateBase = new Date(snapBase.date);
+        const dateCurrent = new Date(snapCurrent.date);
+        const diffTime = Math.abs(dateCurrent - dateBase);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+        
+        const ratePerDay = totalAttended / diffDays;
+        const remaining = totalInitial - totalAttended;
+        const daysToFinish = ratePerDay > 0 ? Math.ceil(remaining / ratePerDay) : '∞';
+
+        projectionEl.innerHTML = `🚀 Projeção: ${daysToFinish} dias para zerar pendências (Ritmo: ${ratePerDay.toFixed(1)} itens/dia)`;
+
+        grid.innerHTML = `
+            <div class="comp-box" style="border-top: 3px solid #fb7185;">
+                <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; margin-bottom: 0.5rem;">RUPTURAS ATENDIDAS</div>
+                <div style="font-size: 1.4rem; font-weight: 800;">${results.rupture.attended} / ${results.rupture.total}</div>
+                <div class="progress-bar-mini" style="background: rgba(251, 113, 133, 0.1);"><div style="width: ${(results.rupture.attended / results.rupture.total * 100) || 0}%; background: #fb7185;"></div></div>
+                <div style="font-size: 0.65rem; margin-top: 0.5rem; color: #fb7185;">${((results.rupture.attended / results.rupture.total * 100) || 0).toFixed(1)}% de eficiência</div>
+            </div>
+            <div class="comp-box" style="border-top: 3px solid #f59e0b;">
+                <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; margin-bottom: 0.5rem;">ATENÇÕES ATENDIDAS</div>
+                <div style="font-size: 1.4rem; font-weight: 800;">${results.attention.attended} / ${results.attention.total}</div>
+                <div class="progress-bar-mini" style="background: rgba(245, 158, 11, 0.1);"><div style="width: ${(results.attention.attended / results.attention.total * 100) || 0}%; background: #f59e0b;"></div></div>
+                <div style="font-size: 0.65rem; margin-top: 0.5rem; color: #f59e0b;">${((results.attention.attended / results.attention.total * 100) || 0).toFixed(1)}% de eficiência</div>
+            </div>
+            <div class="comp-box" style="border-top: 3px solid #34d399;">
+                <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700; margin-bottom: 0.5rem;">SUGESTÕES ATENDIDAS</div>
+                <div style="font-size: 1.4rem; font-weight: 800;">${results.suggest.attended} / ${results.suggest.total}</div>
+                <div class="progress-bar-mini" style="background: rgba(52, 211, 153, 0.1);"><div style="width: ${(results.suggest.attended / results.suggest.total * 100) || 0}%; background: #34d399;"></div></div>
+                <div style="font-size: 0.65rem; margin-top: 0.5rem; color: #34d399;">${((results.suggest.attended / results.suggest.total * 100) || 0).toFixed(1)}% de eficiência</div>
+            </div>
+            <div class="comp-box" style="background: rgba(52, 211, 153, 0.05); border-top: 3px solid #10b981;">
+                <div style="font-size: 0.7rem; color: #10b981; font-weight: 700; margin-bottom: 0.5rem;">RESUMO GLOBAL</div>
+                <div style="font-size: 1.4rem; font-weight: 800; color: #10b981;">${totalAttended} / ${totalInitial}</div>
+                <div class="progress-bar-mini" style="background: rgba(16, 185, 129, 0.1);"><div style="width: ${(totalAttended / totalInitial * 100) || 0}%; background: #10b981;"></div></div>
+                <div style="font-size: 0.65rem; margin-top: 0.5rem; color: #10b981;">${((totalAttended / totalInitial * 100) || 0).toFixed(1)}% da meta atingida</div>
+            </div>
+        `;
     }
 
 
@@ -510,6 +598,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         snapshotHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
+        currentTimelineIdx = snapshotHistory.length - 1; // Iniciar no snapshot mais recente
         updateDashboard();
         loadingOverlay.style.display = 'none';
     });

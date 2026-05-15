@@ -20,7 +20,10 @@ document.addEventListener('DOMContentLoaded', () => {
         suppliers: null,
         volume: null,
         daily: null,
-        monthly: null
+        monthly: null,
+        sparklineTotal: null,
+        sparklineReposicao: null,
+        sparklineVendaCasada: null
     };
     
     let showAllSuppliers = false; // State for Top 10 vs All toggle
@@ -357,6 +360,129 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // 5. Update Timeline
         renderTimeline();
+
+        // 6. Sparklines (Mini Charts)
+        renderSparklines(filteredBySearch);
+    }
+
+    function renderSparklines(data) {
+        // 1. Obter todos os meses únicos do dataset global (nfData) para ter a linha do tempo completa
+        const allMonthsMap = new Map();
+        nfData.forEach(item => {
+            const d = item.rawDate;
+            if (!d || isNaN(d.getTime())) return;
+            const key = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+            if (!allMonthsMap.has(key)) {
+                allMonthsMap.set(key, { key, total: 0, reposicao: 0, vendaCasada: 0 });
+            }
+        });
+
+        // Ordenar as chaves dos meses e inverter para que o mais recente fique na esquerda
+        const sortedKeys = Array.from(allMonthsMap.keys()).sort().reverse();
+        
+        // 2. Preencher com os dados filtrados (data)
+        data.forEach(item => {
+            const d = item.rawDate;
+            if (!d || isNaN(d.getTime())) return;
+            const key = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+            const monthEntry = allMonthsMap.get(key);
+            if (monthEntry) {
+                monthEntry.total += item.value;
+                const p = (item.purpose || '').toLowerCase();
+                if (p.includes('reposicao') || p.includes('estoque')) {
+                    monthEntry.reposicao += item.value;
+                } else if (p.includes('venda') && p.includes('casada')) {
+                    monthEntry.vendaCasada += item.value;
+                }
+            }
+        });
+
+        // 3. Converter o mapa ordenado em arrays para o Chart.js
+        const labels = sortedKeys.map(key => {
+            const [year, month] = key.split('-');
+            return `${month}/${year}`; // Formato MM/YYYY igual ao print
+        });
+        const sparkData = sortedKeys.map(key => allMonthsMap.get(key));
+        
+        if (sparkData.length > 0) {
+            renderSparkline('sparkline-total', sparkData.map(d => d.total), labels, '#0ea5e9', 'sparklineTotal');
+            renderSparkline('sparkline-reposicao', sparkData.map(d => d.reposicao), labels, '#0ea5e9', 'sparklineReposicao');
+            renderSparkline('sparkline-venda-casada', sparkData.map(d => d.vendaCasada), labels, '#0ea5e9', 'sparklineVendaCasada');
+        }
+    }
+
+    function renderSparkline(canvasId, data, labels, color, chartKey) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        
+        // Destroy existing chart if any
+        if (charts[chartKey]) {
+            charts[chartKey].destroy();
+        }
+
+        charts[chartKey] = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    borderColor: color,
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointBackgroundColor: color,
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 1,
+                    tension: 0.3, // Suavizar levemente para enfatizar a curva de tendência
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: {
+                    padding: { top: 30, bottom: 20, left: 15, right: 15 }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: true,
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        callbacks: {
+                            label: (context) => `Valor: ${formatCurrency(context.raw)}`
+                        }
+                    },
+                    datalabels: {
+                        display: true,
+                        anchor: 'end',
+                        align: 'top',
+                        offset: 4,
+                        color: '#fff',
+                        font: { size: 9, weight: 'bold', family: 'Outfit' },
+                        formatter: (value) => value >= 1000000 ? (value/1000000).toFixed(1) + 'M' : (value >= 1000 ? (value/1000).toFixed(1) + 'k' : value.toFixed(0))
+                    }
+                },
+                scales: {
+                    x: { 
+                        display: true, 
+                        grid: { display: false },
+                        ticks: {
+                            color: '#94a3b8',
+                            font: { size: 8 },
+                            maxRotation: 0,
+                            autoSkip: true,
+                            maxTicksLimit: 6
+                        }
+                    },
+                    y: { 
+                        display: false, 
+                        beginAtZero: false // Zoom nas variações para enfatizar a diferença
+                    }
+                },
+                animation: { duration: 800 }
+            },
+            plugins: [ChartDataLabels]
+        });
     }
 
     function filterByPeriodAndSearch() {

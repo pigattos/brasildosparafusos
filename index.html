@@ -108,24 +108,30 @@
 
                 <!-- Group: Cálculo de Estoque -->
                 <div
-                    style="display: flex; flex-direction: column; gap: 0.8rem; flex: 2; min-width: 300px; background: linear-gradient(180deg, rgba(56,189,248,0.06) 0%, transparent 100%); border: 1px solid rgba(56,189,248,0.15); border-radius: 16px; padding: 1.5rem; position: relative;">
+                    style="display: flex; flex-direction: column; gap: 0.8rem; flex: 3; min-width: 400px; background: linear-gradient(180deg, rgba(56,189,248,0.06) 0%, transparent 100%); border: 1px solid rgba(56,189,248,0.15); border-radius: 16px; padding: 1.5rem; position: relative;">
                     <div
                         style="font-size: 0.85rem; color: #38bdf8; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; opacity: 0.9;">
                         📦 Cálculo de Estoque</div>
                     <div
-                        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; height: 100%;">
+                        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 1rem; height: 100%;">
                         <div class="stat-card">
                             <span class="stat-label">Itens Analisados</span>
                             <span class="stat-value" id="total-items">0</span>
                             <span class="stat-sub" id="total-value"
                                 style="font-size: 0.85rem; color: var(--text-muted); margin-top: -2px;">R$ 0,00</span>
                         </div>
-                        <div class="stat-card info" id="orders-card-wrapper">
+                        <div class="stat-card info clickable-card" id="orders-card-wrapper" data-filter="has-order" style="cursor: pointer;">
                             <span class="stat-label">Itens em Pedido</span>
                             <span class="stat-value" id="orders-count">0</span>
                             <span class="stat-sub" id="orders-value"
                                 style="font-size: 0.85rem; color: var(--info); margin-top: -2px; opacity: 0.8;">R$
                                 0,00</span>
+                        </div>
+                        <div class="stat-card success clickable-card" id="safe-card-wrapper" data-filter="safe" style="cursor: pointer;">
+                            <span class="stat-label">Itens Seguros</span>
+                            <span class="stat-value" id="safe-count" style="color: var(--success);">0</span>
+                            <span class="stat-sub" id="safe-value"
+                                style="font-size: 0.85rem; color: var(--success); margin-top: -2px; opacity: 0.8;">R$ 0,00</span>
                         </div>
                     </div>
                 </div>
@@ -162,52 +168,51 @@
                     </div>
                 </div>
 
-                <!-- Group: Recorrência -->
                 <div id="recurrence-group"
-                    style="display: none; flex-direction: column; gap: 0.8rem; flex: 4; min-width: 600px; background: linear-gradient(180deg, rgba(16,185,129,0.06) 0%, transparent 100%); border: 1px solid rgba(16,185,129,0.15); border-radius: 16px; padding: 1.5rem; position: relative;">
+                    style="display: none; flex-direction: column; gap: 0.4rem; flex: 3; min-width: 480px; background: linear-gradient(180deg, rgba(16,185,129,0.06) 0%, transparent 100%); border: 1px solid rgba(16,185,129,0.15); border-radius: 16px; padding: 1rem; position: relative;">
                     <div id="recurrence-title"
-                        style="font-size: 0.85rem; color: #10b981; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; opacity: 0.9;">
+                        style="font-size: 0.8rem; color: #10b981; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; opacity: 0.9;">
                         📈 Projeções por Recorrência (1m)</div>
-                    <div class="timeline-container" style="margin-top: 1rem; padding: 0 1rem; display: flex; gap: 2.5rem; align-items: flex-start;">
-                        <!-- Coluna Esquerda: Controle e Stats -->
-                        <div style="flex: 1;">
-                            <div class="timeline-header" style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 1.5rem;">
-                                <div class="selected-rec-info">
-                                    <span style="display: block; font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px;">Recorrência Mínima</span>
-                                    <div style="display: flex; align-items: baseline; gap: 8px;">
-                                        <span id="current-rec-display" style="font-size: 2.2rem; font-weight: 700; color: #10b981; font-family: 'Outfit', sans-serif;">17%</span>
-                                        <span style="color: var(--text-muted); font-size: 0.9rem;">ou mais</span>
-                                    </div>
-                                </div>
-                                <div class="selected-rec-stats" style="text-align: right;">
-                                    <div id="rec-stat-count" style="font-size: 1.5rem; font-weight: 600; color: #fff;">0 itens</div>
-                                    <div id="rec-stat-value" style="font-size: 1.1rem; color: #10b981; font-weight: 500;">R$ 0,00</div>
+                    
+                    <div class="timeline-container" style="margin-top: 0.2rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                        
+                        <!-- Top: Info & Stats Merged -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.4rem;">
+                            <div class="selected-rec-info">
+                                <div style="display: flex; align-items: baseline; gap: 6px;">
+                                    <span id="current-rec-display" style="font-size: 1.5rem; font-weight: 700; color: #10b981; font-family: 'Outfit', sans-serif;">17%</span>
+                                    <span style="color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase;">ou mais</span>
                                 </div>
                             </div>
-                            
-                            <div class="slider-wrapper" style="position: relative; padding: 10px 0;">
-                                <input type="range" id="rec-slider" min="0" max="5" step="1" value="0" class="premium-slider" style="width: 100%;">
-                                <div class="slider-labels" style="display: flex; justify-content: space-between; margin-top: 15px; color: var(--text-muted); font-size: 0.75rem; font-weight: 600;">
-                                    <span>17%</span>
-                                    <span>33%</span>
-                                    <span>50%</span>
-                                    <span>67%</span>
-                                    <span>83%</span>
-                                    <span>100%</span>
-                                </div>
+                            <div class="selected-rec-stats" style="text-align: right; display: flex; gap: 10px; align-items: center;">
+                                <div id="rec-stat-count" style="font-size: 1rem; font-weight: 600; color: #fff;">0 itens</div>
+                                <div id="rec-stat-value" style="font-size: 0.9rem; color: #10b981; font-weight: 500;">R$ 0,00</div>
                             </div>
                         </div>
 
-                        <!-- Coluna Direita: Legenda -->
-                        <div class="timeline-legend" style="padding-left: 2rem; border-left: 1px solid rgba(255,255,255,0.05); min-width: 200px;">
-                            <span style="display: block; font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 1rem; font-weight: 700;">📌 Guia de Fidelidade</span>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; font-size: 0.75rem;">
-                                <div style="color: rgba(255,255,255,0.7);"><strong style="color: #10b981;">17%</strong> = 1 Mês</div>
-                                <div style="color: rgba(255,255,255,0.7);"><strong style="color: #10b981;">67%</strong> = 4 Meses</div>
-                                <div style="color: rgba(255,255,255,0.7);"><strong style="color: #10b981;">33%</strong> = 2 Meses</div>
-                                <div style="color: rgba(255,255,255,0.7);"><strong style="color: #10b981;">83%</strong> = 5 Meses</div>
-                                <div style="color: rgba(255,255,255,0.7);"><strong style="color: #10b981;">50%</strong> = 3 Meses</div>
-                                <div style="color: rgba(255,255,255,0.7);"><strong style="color: #10b981;">100%</strong> = 6 Meses</div>
+                        <!-- Middle: Slider -->
+                        <div class="slider-wrapper" style="padding: 2px 0;">
+                            <input type="range" id="rec-slider" min="0" max="5" step="1" value="0" class="premium-slider" style="width: 100%;">
+                            <div class="slider-labels" style="display: flex; justify-content: space-between; margin-top: 5px; color: var(--text-muted); font-size: 0.65rem; font-weight: 700;">
+                                <span>17%</span>
+                                <span>33%</span>
+                                <span>50%</span>
+                                <span>67%</span>
+                                <span>83%</span>
+                                <span>100%</span>
+                            </div>
+                        </div>
+
+                        <!-- Bottom: Compact Legend -->
+                        <div class="timeline-legend" style="padding-top: 0.4rem; border-top: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <span style="font-size: 0.6rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 800;">📌 GUIA:</span>
+                            <div style="display: flex; gap: 10px; font-size: 0.65rem; opacity: 0.8;">
+                                <div><strong style="color: #10b981;">17%</strong>:1m</div>
+                                <div><strong style="color: #10b981;">33%</strong>:2m</div>
+                                <div><strong style="color: #10b981;">50%</strong>:3m</div>
+                                <div><strong style="color: #10b981;">67%</strong>:4m</div>
+                                <div><strong style="color: #10b981;">83%</strong>:5m</div>
+                                <div><strong style="color: #10b981;">100%</strong>:6m</div>
                             </div>
                         </div>
                     </div>

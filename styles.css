@@ -261,6 +261,40 @@ header {
     border-color: var(--primary);
 }
 
+/* Selected State for Summary Cards */
+.stat-card.selected {
+    transform: translateY(-5px);
+    border-color: var(--primary);
+    box-shadow: 0 0 20px var(--primary-glow);
+    background: rgba(37, 99, 235, 0.1);
+}
+
+.stat-card.urgent.selected { 
+    border-color: var(--danger); 
+    box-shadow: 0 0 20px rgba(244, 63, 94, 0.3); 
+    background: rgba(244, 63, 94, 0.08);
+}
+.stat-card.attention.selected { 
+    border-color: #f97316; 
+    box-shadow: 0 0 20px rgba(249, 115, 22, 0.3); 
+    background: rgba(249, 115, 22, 0.08);
+}
+.stat-card.warning.selected { 
+    border-color: #eab308; 
+    box-shadow: 0 0 20px rgba(234, 179, 8, 0.3); 
+    background: rgba(234, 179, 8, 0.08);
+}
+.stat-card.info.selected { 
+    border-color: var(--info); 
+    box-shadow: 0 0 20px rgba(14, 165, 233, 0.3); 
+    background: rgba(14, 165, 233, 0.08);
+}
+.stat-card.success.selected { 
+    border-color: var(--success); 
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.3); 
+    background: rgba(16, 185, 129, 0.08);
+}
+
 .stat-label {
     font-size: 0.9rem;
     color: var(--text-muted);
@@ -1707,6 +1741,15 @@ footer {
     font-weight: 500;
 }
 
+.sparkline-container {
+    flex: 1;
+    max-width: 400px;
+    height: 110px;
+    margin-left: 2rem;
+    margin-right: 1rem;
+    opacity: 0.9;
+}
+
 .nf-trend-container {
     display: flex;
     justify-content: space-between;
@@ -2307,3 +2350,6 @@ body.loading-active {
     padding: 2px 8px;
     border-radius: 4px;
 }
+
+.progress-bar-mini { height: 6px; border-radius: 3px; overflow: hidden; margin-top: 8px; width: 100%; }
+.progress-bar-mini div { height: 100%; border-radius: 3px; transition: width 0.6s ease; }

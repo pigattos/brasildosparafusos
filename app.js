@@ -823,23 +823,27 @@ document.addEventListener('DOMContentLoaded', () => {
             tableBody.appendChild(mainTr);
             tableBody.appendChild(detailTr);
         });
+    }
 
-        // Update stats (using current filtered data)
+    /**
+     * Updates the dashboard cards and pie chart based on the provided data
+     */
+    function updateDashboardUI(data) {
         const formatValue = (val) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
         
-        const totalItems = data.length;
         const buyItems = data.filter(i => i.situacao === 'ruptura');
         const attentionItems = data.filter(i => i.situacao === 'atencao');
         const suggestItems = data.filter(i => i.situacao === 'sugestao');
+        const safeItems = data.filter(i => i.situacao === 'seguro');
         const orderItems = data.filter(i => i.temEncomenda);
 
-        const sumValEstoque = (items) => items.reduce((acc, i) => acc + (i.estoque * (parseFloat(i.custoRaw) || 0)), 0);
         const sumValAlerts = (items, m) => items.reduce((acc, i) => acc + ((parseFloat(i.medVenda) || 0) * m * (parseFloat(i.custoRaw) || 0)), 0);
+        const sumValStock = (items) => items.reduce((acc, i) => acc + (i.estoque * (parseFloat(i.custoRaw) || 0)), 0);
         const sumOrderVal = (items) => items.reduce((acc, i) => acc + (i.encomendas * (parseFloat(i.custoRaw) || 0)), 0);
 
-        document.getElementById('total-items').textContent = totalItems;
+        document.getElementById('total-items').textContent = data.length;
         const totalValueEl = document.getElementById('total-value');
-        if (totalValueEl) totalValueEl.textContent = formatValue(sumValEstoque(data));
+        if (totalValueEl) totalValueEl.textContent = formatValue(sumValStock(data));
 
         document.getElementById('to-buy-count').textContent = buyItems.length;
         const buyValueEl = document.getElementById('buy-value');
@@ -852,6 +856,11 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('suggestion-count').textContent = suggestItems.length;
         const suggestionValueEl = document.getElementById('suggestion-value');
         if (suggestionValueEl) suggestionValueEl.textContent = formatValue(sumValAlerts(suggestItems, 3));
+
+        const safeCountEl = document.getElementById('safe-count');
+        if (safeCountEl) safeCountEl.textContent = safeItems.length;
+        const safeValueEl = document.getElementById('safe-value');
+        if (safeValueEl) safeValueEl.textContent = formatValue(sumValStock(safeItems));
 
         const ordersCountEl = document.getElementById('orders-count');
         if (ordersCountEl) ordersCountEl.textContent = orderItems.length;
@@ -886,7 +895,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     recColor = "#eab308";
                 }
             } else {
-                // Multi-seleção ou Geral: consideramos todos os itens em risco
                 baseRecItems = [...buyItems, ...attentionItems, ...suggestItems];
                 recTitle = "📈 Projeções por Recorrência (Geral)";
                 recColor = "#10b981";
@@ -902,7 +910,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const currentSliderIdx = document.getElementById('rec-slider')?.value || 0;
             const currentRecVal = recSteps[currentSliderIdx];
             
-            // Update display labels
             const recDisplayEl = document.getElementById('current-rec-display');
             if (recDisplayEl) {
                 recDisplayEl.textContent = `${currentRecVal}%`;
@@ -915,7 +922,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const slider = document.getElementById('rec-slider');
                 
                 const filteredByRec = items.filter(i => parseFloat(i.recorrencia) >= currentRecVal);
-                
                 if (countEl) countEl.textContent = `${filteredByRec.length} itens`;
                 
                 let totalVal = 0;
@@ -936,12 +942,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     valueEl.style.color = recColor;
                 }
 
-                // Update legend colors to match
                 document.querySelectorAll('.timeline-legend strong').forEach(el => {
                     el.style.color = recColor;
                 });
 
-                // Update slider thumb color
                 if (slider) {
                     const style = document.createElement('style');
                     style.innerHTML = `
@@ -955,7 +959,6 @@ document.addEventListener('DOMContentLoaded', () => {
             updateRecSliderStats(baseRecItems);
         }
 
-        // Update Charts with filtered data
         updateChart(data);
     }
 
@@ -1471,37 +1474,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const smartTerm = smartSearch.value.toLowerCase().trim();
         const keywords = smartTerm.split(/\s+/).filter(k => k.length > 0);
 
-        // 1. Filtros de Contexto (Comprador, Status, Recorrência) - Afetam Tabela e Gráfico
+        // 1. Context Filter (Buyer, Suppliers, Groups)
         const matchesContext = (i) => {
             const matchBuyer = activeBuyer === 'all' || i.comprador.toLowerCase() === activeBuyer.toLowerCase();
-            
-            let matchRec = true;
-            if (activeRecFilter !== null) {
-                matchRec = parseFloat(i.recorrencia) >= activeRecFilter;
-            }
-
-            let matchStatus = true;
-            if (!activeFilters.includes('all')) {
-                const statusFilters = activeFilters.filter(f => ['buy', 'attention', 'suggest'].includes(f));
-                const flagFilters = activeFilters.filter(f => ['has-order', 'high-rec'].includes(f));
-                
-                let passStatus = statusFilters.length === 0;
-                if (statusFilters.length > 0) {
-                    if (statusFilters.includes('buy') && i.situacao === 'ruptura') passStatus = true;
-                    if (statusFilters.includes('attention') && i.situacao === 'atencao') passStatus = true;
-                    if (statusFilters.includes('suggest') && i.situacao === 'sugestao') passStatus = true;
-                }
-                
-                let passFlags = true;
-                if (flagFilters.includes('has-order') && !i.temEncomenda) passFlags = false;
-                
-                matchStatus = passStatus && passFlags;
-            }
-
-            return matchBuyer && matchStatus && matchRec;
+            const matchSelectedSupp = selectedSuppliers.length === 0 || selectedSuppliers.includes(i.fornecedor);
+            const matchSelectedGroup = selectedGroups.length === 0 || selectedGroups.includes(i.grupo);
+            return matchBuyer && matchSelectedSupp && matchSelectedGroup;
         };
 
-        // 2. Filtros de Busca (Texto e Smart Search) - Afetam apenas a Tabela
+        // 2. Search Filter (Table Search, Smart Search)
         const matchesSearch = (i) => {
             const cleanProd = i.produto.toString().replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
             const cleanTerm = prodTerm.replace(/[^a-zA-Z0-9]/g, '');
@@ -1517,18 +1498,42 @@ document.addEventListener('DOMContentLoaded', () => {
             return matchProd && matchSmart;
         };
 
-        // Dados da Tabela: Filtro Total (Contexto + Busca + Seleções do Gráfico)
-        filteredData = currentData.filter(i => {
-            const context = matchesContext(i);
-            const search = matchesSearch(i);
-            const matchSelectedSupp = selectedSuppliers.length === 0 || selectedSuppliers.includes(i.fornecedor);
-            const matchSelectedGroup = selectedGroups.length === 0 || selectedGroups.includes(i.grupo);
-            return context && search && matchSelectedSupp && matchSelectedGroup;
+        // 3. Status/Recurrence Filter
+        const matchesStatus = (i) => {
+            let matchRec = activeRecFilter === null || parseFloat(i.recorrencia) >= activeRecFilter;
+            
+            let matchStatus = true;
+            if (activeFilters.includes('all')) {
+                // PERFORMANCE OPTIMIZATION: By default, exclude "Safe" items from table rendering
+                // They will only show if the 'safe' card is explicitly clicked.
+                matchStatus = (i.situacao !== 'seguro');
+            } else {
+                const statusFilters = activeFilters.filter(f => ['buy', 'attention', 'suggest', 'safe'].includes(f));
+                if (statusFilters.length > 0) {
+                    matchStatus = false;
+                    if (statusFilters.includes('buy') && i.situacao === 'ruptura') matchStatus = true;
+                    if (statusFilters.includes('attention') && i.situacao === 'atencao') matchStatus = true;
+                    if (statusFilters.includes('suggest') && i.situacao === 'sugestao') matchStatus = true;
+                    if (statusFilters.includes('safe') && i.situacao === 'seguro') matchStatus = true;
+                }
+            }
+
+            if (activeFilters.includes('has-order') && !i.temEncomenda) return false;
+            return matchStatus && matchRec;
+        };
+
+        // Data for Stats and Charts: Context Only
+        const chartData = currentData.filter(i => matchesContext(i));
+
+        // Data for Summary Cards: Context + Search + Recurrence
+        const summaryData = chartData.filter(i => {
+            const matchSearch = matchesSearch(i);
+            const matchRec = activeRecFilter === null || parseFloat(i.recorrencia) >= activeRecFilter;
+            return matchSearch && matchRec;
         });
 
-        // Dados dos Gráficos: Apenas Contexto (Buyer/Status)
-        // Ignoramos a busca e as seleções para as barras ficarem sempre visíveis e estáveis
-        const chartData = currentData.filter(i => matchesContext(i));
+        // Data for Table: Full Filtering (Includes Status Toggle)
+        filteredData = chartData.filter(i => matchesSearch(i) && matchesStatus(i));
 
         renderActiveFilters();
 
@@ -1542,20 +1547,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (sortRecorrenciaDir === 'asc') {
             filteredData.sort((a, b) => parseFloat(a.recorrencia) - parseFloat(b.recorrencia));
         } else if (sortDiasEstoqueDir === 'asc') {
-            filteredData.sort((a, b) => {
-                if (a.diasEstoque === null) return 1;
-                if (b.diasEstoque === null) return -1;
-                return a.diasEstoque - b.diasEstoque;
-            });
+            filteredData.sort((a, b) => (a.diasEstoque === null ? 1 : b.diasEstoque === null ? -1 : a.diasEstoque - b.diasEstoque));
         } else if (sortDiasEstoqueDir === 'desc') {
-            filteredData.sort((a, b) => {
-                if (a.diasEstoque === null) return 1;
-                if (b.diasEstoque === null) return -1;
-                return b.diasEstoque - a.diasEstoque;
-            });
+            filteredData.sort((a, b) => (a.diasEstoque === null ? 1 : b.diasEstoque === null ? -1 : b.diasEstoque - a.diasEstoque));
         }
 
-        updateChart(chartData);
+        updateDashboardUI(summaryData);
         renderTable(filteredData);
     }
 
@@ -1638,13 +1635,23 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Update UI
+        // Update UI - Table Buttons
         filterBtns.forEach(btn => {
             const btnFilter = btn.getAttribute('data-filter');
             if (activeFilters.includes(btnFilter)) {
                 btn.classList.add('active');
             } else {
                 btn.classList.remove('active');
+            }
+        });
+
+        // Update UI - Summary Cards
+        document.querySelectorAll('.stat-card').forEach(card => {
+            const cardFilter = card.getAttribute('data-filter');
+            if (cardFilter && activeFilters.includes(cardFilter)) {
+                card.classList.add('selected');
+            } else {
+                card.classList.remove('selected');
             }
         });
 
@@ -1789,6 +1796,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (btnFilter === 'all') btn.classList.add('active');
             else btn.classList.remove('active');
         });
+        
+        document.querySelectorAll('.stat-card').forEach(card => {
+            card.classList.remove('selected');
+        });
+
         applyAllFilters();
     });
 

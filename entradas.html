@@ -90,28 +90,49 @@
                 </section>
                 <section class="summary-cards">
                     <div class="card-nf">
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
-                            <span class="nf-label">Total Recebido (Período)</span>
-                            <span id="trend-total" class="card-trend-badge"></span>
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 2rem;">
+                            <div style="min-width: 180px;">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+                                    <span class="nf-label">Total Recebido (Período)</span>
+                                    <span id="trend-total" class="card-trend-badge"></span>
+                                </div>
+                                <span class="nf-value" id="total-received">R$ 0,00</span>
+                                <span class="nf-sub" id="nf-count">0 registros</span>
+                            </div>
+                            <div class="sparkline-container">
+                                <canvas id="sparkline-total"></canvas>
+                            </div>
                         </div>
-                        <span class="nf-value" id="total-received">R$ 0,00</span>
-                        <span class="nf-sub" id="nf-count">0 registros</span>
                     </div>
                     <div class="card-nf">
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
-                            <span class="nf-label">Reposição de Estoque</span>
-                            <span id="trend-reposicao" class="card-trend-badge"></span>
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 2rem;">
+                            <div style="min-width: 180px;">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+                                    <span class="nf-label">Reposição de Estoque</span>
+                                    <span id="trend-reposicao" class="card-trend-badge"></span>
+                                </div>
+                                <span class="nf-value" id="qty-reposicao">0</span>
+                                <span class="nf-sub">Valor total (SPED)</span>
+                            </div>
+                            <div class="sparkline-container">
+                                <canvas id="sparkline-reposicao"></canvas>
+                            </div>
                         </div>
-                        <span class="nf-value" id="qty-reposicao">0</span>
-                        <span class="nf-sub">Valor total (SPED)</span>
                     </div>
                     <div class="card-nf">
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
-                            <span class="nf-label">Venda Casada</span>
-                            <span id="trend-venda-casada" class="card-trend-badge"></span>
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 2rem;">
+                            <div style="min-width: 180px;">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+                                    <span class="nf-label">Venda Casada</span>
+                                    <span id="trend-venda-casada" class="card-trend-badge"></span>
+                                </div>
+                                <span class="nf-value" id="qty-venda-casada">0</span>
+                                <span class="nf-sub">Valor total (SPED)</span>
+                            </div>
+                            <div class="sparkline-container">
+                                <canvas id="sparkline-venda-casada"></canvas>
+                            </div>
                         </div>
-                        <span class="nf-value" id="qty-venda-casada">0</span>
-                        <span class="nf-sub">Valor total (SPED)</span>
                     </div>
                 </section>
                 
