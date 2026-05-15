@@ -5,8 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/svg+xml"
-        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📉</text></svg>">
-    <title>Análise Analítica de Rupturas | Brasil dos Parafusos</title>
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>">
+    <title>Inteligência Evolutiva de Abastecimento | Brasil dos Parafusos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -28,7 +28,7 @@
                 <div class="spinner-main"></div>
                 <div class="spinner-accent"></div>
             </div>
-            <div class="loading-text">Processando Inteligência de Dados...</div>
+            <div class="loading-text">Analisando Histórico Evolutivo...</div>
         </div>
     </div>
 
@@ -36,23 +36,20 @@
         <header class="main-header">
             <div class="header-content">
                 <div class="logo-area">
-                    <h1 class="main-title">Análise de Rupturas <span class="badge badge-buy" style="font-size: 0.6rem; vertical-align: middle;">Analítico</span></h1>
-                    <p class="subtitle">Setor de Compras | Evolução e Histórico</p>
+                    <h1 class="main-title">Inteligência Evolutiva <span class="badge badge-buy" style="font-size: 0.6rem; vertical-align: middle;">Evolução de Abastecimento</span></h1>
+                    <p class="subtitle">Setor de Compras | Monitoramento de Recuperação de Estoque</p>
                 </div>
             </div>
             <div class="header-actions">
-                <!-- Filtro de Comprador -->
-                <div class="buyer-selector" id="buyer-filter-container" style="margin-right: 1rem;">
+                <div class="buyer-selector" id="buyer-filter-container">
                     <button class="buyer-btn active" data-buyer="all">👤 Todos</button>
-                    <button class="buyer-btn" data-buyer="Cassyano">Cassyano</button>
-                    <button class="buyer-btn" data-buyer="Rafa">Rafa</button>
+                    <!-- Injetado via JS -->
                 </div>
 
                 <label for="folder-upload" class="btn btn-primary">
-                    <span class="btn-icon">📁</span> Selecionar Pasta
+                    <span class="btn-icon">📁</span> Pasta "Análise Rupturas"
                 </label>
                 <input type="file" id="folder-upload" webkitdirectory directory multiple hidden>
-                
                 
                 <a href="index.html" class="btn btn-secondary">
                     <span class="btn-icon">📦</span> Gestor de Estoque
@@ -60,127 +57,133 @@
             </div>
         </header>
 
-        <!-- Seletor de Linha do Tempo Dinâmica -->
-        <div class="main-card" id="timeline-card" style="display: none; margin-bottom: 2rem; background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(37, 99, 235, 0.08) 100%); border: 1px solid rgba(59, 130, 246, 0.2);">
-            <div class="card-body" style="padding: 2rem;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem;">
-                    <div>
-                        <h3 style="font-size: 1.1rem; color: #fff; margin-bottom: 0.5rem;"><span class="header-icon">🕒</span> Navegador Temporal de Cenários</h3>
-                        <p style="color: var(--text-muted); font-size: 0.85rem;">Arraste para visualizar o estado do estoque em diferentes datas.</p>
+        <!-- DASHBOARD EVOLUTIVO -->
+        <main id="main-content" style="display: none;">
+            
+            <!-- SELETOR TEMPORAL -->
+            <div class="main-card evolution-header-card" style="margin-bottom: 2rem;">
+                <div class="card-body" style="padding: 2.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2.5rem;">
+                        <div>
+                            <h3 style="font-size: 1.2rem; color: #fff; margin-bottom: 0.5rem; letter-spacing: 0.5px;">
+                                <span class="header-icon">🕰️</span> NAVEGADOR DE EVOLUÇÃO OPERACIONAL
+                            </h3>
+                            <p style="color: var(--text-muted); font-size: 0.9rem;">
+                                Base de Referência Fixa: <strong id="base-date-display" style="color: var(--info);">---</strong>
+                            </p>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-muted); margin-bottom: 0.5rem;">Comparativo Atual</div>
+                            <div id="current-snapshot-date" style="font-size: 2.2rem; font-weight: 800; color: #6366f1; font-family: 'Outfit', sans-serif; line-height: 1;">---</div>
+                        </div>
                     </div>
-                    <div style="text-align: right;">
-                        <div id="current-snapshot-date" style="font-size: 1.8rem; font-weight: 700; color: #3b82f6; font-family: 'Outfit', sans-serif;">---</div>
-                        <div id="current-snapshot-name" style="font-size: 0.75rem; color: var(--text-muted);">Aguardando dados...</div>
-                    </div>
-                </div>
-                
-                <div class="timeline-slider-wrapper" style="position: relative; padding: 0 10px;">
-                    <input type="range" id="timeline-range" min="0" max="0" step="1" value="0" style="width: 100%; height: 6px; appearance: none; background: rgba(255,255,255,0.1); border-radius: 3px; outline: none; cursor: pointer;">
-                    <div id="timeline-ticks" style="display: flex; justify-content: space-between; margin-top: 15px; color: var(--text-muted); font-size: 0.7rem; font-weight: 600;">
-                        <!-- Injetado via JS -->
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <main>
-            <!-- Resumo de Movimentação Diária -->
-            <div class="main-card" id="daily-diff-card" style="display: none; margin-bottom: 2rem;">
-                <div class="card-header">
-                    <h3><span class="header-icon">🔄</span> Movimentação da Carteira (Últimos 2 Relatórios)</h3>
-                </div>
-                <div class="card-body">
-                    <div id="daily-diff-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
-                        <!-- Injetado via JS -->
+                    
+                    <div class="timeline-slider-wrapper">
+                        <input type="range" id="timeline-range" min="0" max="0" step="1" value="0" class="premium-range">
+                        <div id="timeline-ticks" class="timeline-ticks">
+                            <!-- Injetado via JS -->
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Resumo de Eficiência de Atendimento (Desde o Início) -->
-            <div class="main-card" id="efficiency-card" style="display: none; margin-bottom: 2rem; border-left: 5px solid #34d399;">
-                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                    <h3><span class="header-icon">📈</span> Eficiência de Atendimento (Desde 07/05)</h3>
-                    <div id="efficiency-projection" style="font-size: 0.8rem; font-weight: 600; color: #34d399; background: rgba(52, 211, 153, 0.1); padding: 4px 12px; border-radius: 20px;">
-                        Calculando projeção...
-                    </div>
-                </div>
-                <div class="card-body">
-                    <div id="efficiency-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
-                        <!-- Injetado via JS -->
-                    </div>
-                </div>
-            </div>
-
-            <!-- Cards de Resumo Atual -->
+            <!-- KPI'S DE RECUPERAÇÃO -->
             <section class="stats-grid" style="margin-bottom: 2rem;">
-                <div class="stat-card card-buy">
+                <!-- Eficiência Global -->
+                <div class="stat-card card-evolution-main" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.05)); border: 1px solid rgba(16, 185, 129, 0.3);">
                     <div class="stat-header">
-                        <span class="stat-label">RUPTURA ATUAL (CRÍTICO)</span>
-                        <span class="trend-badge" id="rupture-trend"></span>
+                        <span class="stat-label">TAXA DE RECUPERAÇÃO GLOBAL</span>
+                        <span id="efficiency-percent" class="trend-badge" style="background: #10b981; color: white;">0%</span>
                     </div>
-                    <div class="stat-value" id="rupture-value">R$ 0,00</div>
-                    <div class="stat-footer" id="rupture-count">0 itens em risco total</div>
+                    <div class="stat-value" id="global-recovered-count" style="color: #34d399;">0</div>
+                    <div class="stat-footer" id="global-recovered-sub">Itens recuperados desde a base</div>
                 </div>
 
-                <div class="stat-card card-warn">
+                <!-- Rupturas Recuperadas -->
+                <div class="stat-card" style="border-left: 4px solid #fb7185;">
                     <div class="stat-header">
-                        <span class="stat-label">ATENÇÃO ATUAL (2 MESES)</span>
-                        <span class="trend-badge" id="attention-trend"></span>
+                        <span class="stat-label">RUPTURAS RECUPERADAS</span>
                     </div>
-                    <div class="stat-value" id="attention-value">R$ 0,00</div>
-                    <div class="stat-footer" id="attention-count">0 itens em monitoramento</div>
+                    <div class="stat-value" id="rupture-recovered">0</div>
+                    <div class="stat-footer" id="rupture-recovered-percent">0% de sucesso no nível 3</div>
                 </div>
 
-                <div class="stat-card card-caution">
+                <!-- Atenções Recuperadas -->
+                <div class="stat-card" style="border-left: 4px solid #f59e0b;">
                     <div class="stat-header">
-                        <span class="stat-label">SUGESTÃO DE COMPRA (3 MESES)</span>
-                        <span class="trend-badge" id="suggest-trend"></span>
+                        <span class="stat-label">ATENÇÕES RECUPERADAS</span>
                     </div>
-                    <div class="stat-value" id="suggest-value">R$ 0,00</div>
-                    <div class="stat-footer" id="suggest-count">0 itens para reposição</div>
+                    <div class="stat-value" id="attention-recovered">0</div>
+                    <div class="stat-footer" id="attention-recovered-percent">0% de sucesso no nível 2</div>
+                </div>
+
+                <!-- Pioras Detectadas -->
+                <div class="stat-card" style="border-left: 4px solid #ef4444; background: rgba(239, 68, 68, 0.02);">
+                    <div class="stat-header">
+                        <span class="stat-label">PIORA OPERACIONAL</span>
+                    </div>
+                    <div class="stat-value" id="worsened-count" style="color: #fb7185;">0</div>
+                    <div class="stat-footer">Itens que aumentaram criticidade</div>
                 </div>
             </section>
 
-            <!-- Gráfico de Evolução -->
-            <div class="main-card" style="margin-bottom: 2rem;">
-                <div class="card-header">
-                    <h3><span class="header-icon">📊</span> Evolução Histórica das Rupturas (Qtd. Itens)</h3>
+            <!-- GRÁFICO E PERFORMANCE -->
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                <!-- Evolução da Criticidade -->
+                <div class="main-card">
+                    <div class="card-header">
+                        <h3><span class="header-icon">📉</span> Curva de Recuperação de Abastecimento</h3>
+                    </div>
+                    <div class="card-body">
+                        <div style="height: 350px;">
+                            <canvas id="evolution-chart"></canvas>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <div style="height: 350px; position: relative;">
-                        <canvas id="evolution-chart"></canvas>
+
+                <!-- Performance por Segmento -->
+                <div class="main-card">
+                    <div class="card-header">
+                        <h3><span class="header-icon">🏆</span> Top Recuperadores</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="performance-list" id="performance-list">
+                            <!-- Injetado via JS -->
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Histórico e Comparativo -->
-            <div class="main-card" style="margin-bottom: 2rem;">
+            <!-- TABELA DE DETALHAMENTO -->
+            <div class="main-card">
                 <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                    <h3><span class="header-icon">📅</span> Histórico de Snapshots Diários</h3>
-                    <button id="compare-btn" class="btn btn-primary" style="display: none; padding: 0.5rem 1rem; font-size: 0.8rem;">
-                        ⚖️ Comparar Selecionados (<span id="selected-count">0</span>)
-                    </button>
+                    <h3><span class="header-icon">📋</span> Detalalhamento de Movimentação por Item</h3>
+                    <div class="table-filters" style="display: flex; gap: 1rem;">
+                        <select id="evolution-filter" class="premium-select">
+                            <option value="all">Todos os Itens</option>
+                            <option value="improved">Apenas Melhorias</option>
+                            <option value="worsened">Apenas Pioras</option>
+                            <option value="stable">Apenas Estáveis</option>
+                        </select>
+                        <input type="text" id="table-search" placeholder="Buscar código ou descrição..." class="premium-input">
+                    </div>
                 </div>
                 <div class="card-body">
-                    <div class="table-container">
-                        <table>
+                    <div class="table-container" style="max-height: 600px;">
+                        <table id="evolution-table">
                             <thead>
                                 <tr>
-                                    <th style="width: 40px;"></th>
-                                    <th>Arquivo</th>
-                                    <th>Data</th>
-                                    <th style="text-align: center;">Total Itens</th>
-                                    <th style="text-align: center;">Rupturas</th>
-                                    <th style="text-align: right;">Valor em Risco</th>
-                                    <th style="text-align: center;">Ações</th>
+                                    <th>Cód.</th>
+                                    <th>Descrição</th>
+                                    <th>Fornecedor</th>
+                                    <th style="text-align: center;">Base</th>
+                                    <th style="text-align: center;">Atual</th>
+                                    <th style="text-align: center;">Evolução</th>
+                                    <th>Status</th>
                                 </tr>
                             </thead>
-                            <tbody id="history-table-body">
-                                <tr>
-                                    <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
-                                        Selecione uma pasta para carregar o histórico de rupturas.
-                                    </td>
-                                </tr>
+                            <tbody id="evolution-table-body">
+                                <!-- Injetado via JS -->
                             </tbody>
                         </table>
                     </div>
@@ -188,17 +191,20 @@
             </div>
 
         </main>
-    </div>
 
-    <!-- Modal de Comparação -->
-    <div id="comparison-modal" class="modal-overlay">
-        <div class="modal-content" style="max-width: 1100px;">
-            <div class="modal-header">
-                <h2 id="modal-title">⚖️ Comparativo de Períodos</h2>
-                <button class="close-btn" id="close-modal">&times;</button>
-            </div>
-            <div class="modal-body" id="modal-body">
-                <!-- Injetado via JS -->
+        <!-- WELCOME STATE -->
+        <div id="welcome-state" class="welcome-board" style="padding: 5rem 2rem; text-align: center;">
+            <div class="welcome-watermark">Desenvolvido por Cassyano</div>
+            <div class="welcome-content" style="max-width: 600px; margin: 0 auto;">
+                <div style="font-size: 5rem; margin-bottom: 2rem;">🚀</div>
+                <h2 style="font-size: 2.2rem; margin-bottom: 1rem; color: #fff;">Pronto para analisar a evolução?</h2>
+                <p style="color: var(--text-muted); font-size: 1.1rem; margin-bottom: 3rem;">
+                    Selecione a pasta <strong>"Análise Rupturas"</strong> para que o sistema identifique automaticamente a base histórica e calcule a recuperação do seu estoque.
+                </p>
+                <label for="folder-upload-welcome" class="btn btn-primary" style="padding: 1.2rem 3rem; font-size: 1.1rem;">
+                    <span class="btn-icon">📁</span> Iniciar Análise Evolutiva
+                </label>
+                <input type="file" id="folder-upload-welcome" webkitdirectory directory multiple hidden>
             </div>
         </div>
     </div>
